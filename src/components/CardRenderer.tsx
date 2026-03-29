@@ -10,6 +10,7 @@ import { CHANNELS } from '@/lib/card';
 interface CardRendererProps {
   data: CardData;
   scale?: number;
+  renderId?: string;
   onImageReady?: (ready: boolean) => void;
 }
 
@@ -22,12 +23,15 @@ const CHANNEL_ICONS: Record<string, string> = {
   other: '⚪',
 };
 
-export default function CardRenderer({ data, scale = 1, onImageReady }: CardRendererProps) {
+const avatarDataUrlCache = new Map<string, string>();
+const avatarRequestCache = new Map<string, Promise<string>>();
+
+export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-render', onImageReady }: CardRendererProps) {
   const title = calculateTitle(data.totalTokens);
   const tags = useMemo(() => getRandomTags(2), []);
   const metaphor = useMemo(
-    () => getMetaphor(data.totalTokens, data.metaphorCategory, data.locale),
-    [data.totalTokens, data.metaphorCategory, data.locale]
+    () => data.customMetaphor.trim() || getMetaphor(data.totalTokens, data.metaphorCategory, data.locale),
+    [data.customMetaphor, data.totalTokens, data.metaphorCategory, data.locale]
   );
 
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -63,32 +67,43 @@ export default function CardRenderer({ data, scale = 1, onImageReady }: CardRend
   const [resolvedAvatar, setResolvedAvatar] = useState<string>('');
   const [isImageLoading, setIsImageLoading] = useState(false);
   const fetchControllerRef = useRef<AbortController | null>(null);
-  const cacheRef = useRef<Map<string, string>>(new Map());
 
-  // Stable callback to fetch and cache images
   const fetchImageAsBase64 = useCallback(async (url: string, signal: AbortSignal): Promise<string> => {
-    // Check cache first
-    const cached = cacheRef.current.get(url);
+    const cached = avatarDataUrlCache.get(url);
     if (cached) return cached;
 
-    const res = await fetch(url, { mode: 'cors', signal, cache: 'force-cache' });
-    if (!res.ok) throw new Error('Network response was not ok');
-    const blob = await res.blob();
-    
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          const result = reader.result as string;
-          cacheRef.current.set(url, result);
-          resolve(result);
-        } else {
-          reject(new Error('FileReader returned null'));
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    const pending = avatarRequestCache.get(url);
+    if (pending) return pending;
+
+    const request = (async () => {
+      const res = await fetch(url, { mode: 'cors', signal, cache: 'force-cache' });
+      if (!res.ok) throw new Error('Network response was not ok');
+      const blob = await res.blob();
+
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (reader.result) {
+            resolve(reader.result as string);
+          } else {
+            reject(new Error('FileReader returned null'));
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      avatarDataUrlCache.set(url, base64);
+      return base64;
+    })();
+
+    avatarRequestCache.set(url, request);
+
+    try {
+      return await request;
+    } finally {
+      avatarRequestCache.delete(url);
+    }
   }, []);
 
   useEffect(() => {
@@ -236,7 +251,7 @@ export default function CardRenderer({ data, scale = 1, onImageReady }: CardRend
 
   return (
     <div
-      id="tokcard-render"
+      id={renderId}
       style={{
         width: 540 * s,
         height: 720 * s,

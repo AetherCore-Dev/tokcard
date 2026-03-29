@@ -4,6 +4,7 @@ export interface CardData {
   avatarType: 'photo' | 'emoji' | 'github' | 'cartoon';
   avatarValue: string; // URL, emoji char, github username, or dicebear seed
   slogan: string;
+  customMetaphor: string;
   totalTokens: number;
   channel: 'claude' | 'gpt' | 'cursor' | 'deepseek' | 'gemini' | 'other';
   theme: 'brand-dark' | 'brand-light' | 'bold-violet' | 'mono-brutal';
@@ -54,6 +55,7 @@ export const DEFAULT_CARD_DATA: CardData = {
   avatarType: 'emoji',
   avatarValue: '🤖',
   slogan: 'Build with AI, ship like a factory',
+  customMetaphor: '',
   totalTokens: 0,
   channel: 'claude',
   theme: 'brand-light',

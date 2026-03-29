@@ -40,6 +40,8 @@ export default function CardEditor() {
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(0.72);
   const [isPreviewReady, setIsPreviewReady] = useState(true);
+  const previewRenderId = 'tokcard-preview';
+  const exportRenderId = 'tokcard-export';
 
   const DEEPSEEK_KEY = 'sk-1cf337ca01ee4cf7bb69593e119b7d2f';
 
@@ -79,6 +81,10 @@ export default function CardEditor() {
 
   const isZh = data.locale === 'zh';
 
+  const updateField = useCallback(<K extends keyof CardData>(key: K, value: CardData[K]) => {
+    setData(prev => ({ ...prev, [key]: value }));
+  }, []);
+
   const handleGenerateSlogan = useCallback(async () => {
     setIsGeneratingSlogan(true);
     setAiSlogans([]);
@@ -96,20 +102,18 @@ export default function CardEditor() {
     setIsGeneratingMetaphor(true);
     setAiMetaphors([]);
     try {
-      const tokensToUse = data.totalTokens > 0 ? data.totalTokens : 10000; // fallback if 0
+      const tokensToUse = data.totalTokens > 0 ? data.totalTokens : 10000;
       const result = await generateMetaphor(tokensToUse, data.locale, DEEPSEEK_KEY);
-      setAiMetaphors(parseAIOptions(result));
+      const options = parseAIOptions(result);
+      setAiMetaphors(options);
+      updateField('customMetaphor', options[0] ?? '');
     } catch (err) {
       console.error('AI metaphor generation failed:', err);
       alert(isZh ? '生成失败，请检查网络' : 'Generation failed, check network');
     } finally {
       setIsGeneratingMetaphor(false);
     }
-  }, [data.totalTokens, data.locale, isZh]);
-
-  const updateField = useCallback(<K extends keyof CardData>(key: K, value: CardData[K]) => {
-    setData(prev => ({ ...prev, [key]: value }));
-  }, []);
+  }, [data.totalTokens, data.locale, isZh, updateField]);
 
   const handleTokenInput = useCallback((raw: string) => {
     setTokenInput(raw);
@@ -183,6 +187,15 @@ export default function CardEditor() {
     });
   }, []);
 
+  const handleMetaphorCategoryChange = useCallback((category: MetaphorCategory) => {
+    setData(prev => ({
+      ...prev,
+      metaphorCategory: category,
+      customMetaphor: '',
+    }));
+    setAiMetaphors([]);
+  }, []);
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -238,7 +251,7 @@ export default function CardEditor() {
   }, []);
 
   const handleExport = useCallback(async () => {
-    const el = document.getElementById('tokcard-render');
+    const el = document.getElementById(exportRenderId);
     if (!el) return;
 
     if (!isPreviewReady) {
@@ -312,7 +325,7 @@ export default function CardEditor() {
     } finally {
       setIsExporting(false);
     }
-  }, [data.username, isZh, downloadViaLink, isPreviewReady, waitForImagesToSettle]);
+  }, [data.username, isZh, downloadViaLink, exportRenderId, isPreviewReady, waitForImagesToSettle]);
 
   const MobileTabBar = () => (
     <div className="lg:hidden sticky top-0 z-20 -mx-4 px-4 py-3 bg-[#fbfbfd]/80 backdrop-blur-xl border-b border-[#d2d2d7]/30">
@@ -524,8 +537,8 @@ export default function CardEditor() {
                     {aiSlogans.map((s, i) => (
                       <button type="button"
                         key={i}
-                        onClick={() => { updateField('slogan', s); setAiSlogans([]); }}
-                        className="text-left text-sm px-4 py-2.5 bg-[#f5f5f7] rounded-lg text-[#1d1d1f] hover:bg-[#0071e3] hover:text-white transition-all"
+                        onClick={() => updateField('slogan', s)}
+                        className={`text-left text-sm px-4 py-2.5 rounded-lg transition-all border ${data.slogan === s ? 'bg-[#0071e3] text-white border-[#0071e3] shadow-sm' : 'bg-[#f5f5f7] text-[#1d1d1f] border-transparent hover:bg-[#0071e3] hover:text-white'}`}
                       >
                         {s}
                       </button>
@@ -538,7 +551,7 @@ export default function CardEditor() {
                   <button type="button"
                     key={s}
                     onClick={() => updateField('slogan', s)}
-                    className="text-xs px-3 py-1.5 bg-white border border-[#d2d2d7] rounded-full text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors"
+                    className={`text-xs px-3 py-1.5 border rounded-full transition-colors ${data.slogan === s ? 'bg-[#0071e3] border-[#0071e3] text-white' : 'bg-white border-[#d2d2d7] text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
                   >
                     {s}
                   </button>
@@ -561,22 +574,32 @@ export default function CardEditor() {
                 </button>
               </div>
               {aiMetaphors.length > 0 && (
-                <div className="mb-4 p-4 rounded-xl bg-white border border-[#0071e3]/30 shadow-sm">
-                  <div className="text-xs font-medium mb-3 text-[#0071e3]">{isZh ? 'AI 生成的比喻 (可截图分享)' : 'AI Generated Metaphors'}</div>
-                  <div className="flex flex-col gap-2">
-                    {aiMetaphors.map((m, i) => (
-                      <div key={i} className="text-sm px-4 py-2.5 bg-[#f5f5f7] rounded-lg text-[#1d1d1f]">
-                        {m}
-                      </div>
-                    ))}
+                <>
+                  <div className="mb-4 p-4 rounded-xl bg-white border border-[#0071e3]/30 shadow-sm">
+                    <div className="text-xs font-medium mb-3 text-[#0071e3]">{isZh ? 'AI 生成的比喻 (点击应用)' : 'AI Generated Metaphors (tap to apply)'}</div>
+                    <div className="flex flex-col gap-2">
+                      {aiMetaphors.map((m, i) => (
+                        <button
+                          type="button"
+                          key={i}
+                          onClick={() => updateField('customMetaphor', m)}
+                          className={`text-left text-sm px-4 py-2.5 rounded-lg transition-all border ${data.customMetaphor === m ? 'bg-[#0071e3] text-white border-[#0071e3] shadow-sm' : 'bg-[#f5f5f7] text-[#1d1d1f] border-transparent hover:bg-[#0071e3] hover:text-white'}`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                  <p className="mt-3 text-xs text-[#86868b]">
+                    {data.customMetaphor ? (isZh ? '已应用到卡片预览，点击其他项可切换。' : 'Applied to the card preview. Tap another option to switch.') : (isZh ? '点击任意比喻即可应用到卡片。' : 'Tap any metaphor to apply it to the card.')}
+                  </p>
+                </>
               )}
               <div className="flex flex-wrap gap-2">
                 {(Object.entries(METAPHOR_CATEGORY_LABELS) as [MetaphorCategory, { zh: string; en: string }][]).map(([key, label]) => (
                   <button type="button"
                     key={key}
-                    onClick={() => updateField('metaphorCategory', key)}
+                    onClick={() => handleMetaphorCategoryChange(key)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${data.metaphorCategory === key ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
                   >
                     {isZh ? label.zh : label.en}
@@ -615,7 +638,7 @@ export default function CardEditor() {
             <div className="flex justify-center overflow-hidden" ref={cardRef}>
               <div style={{ width: 540 * previewScale, height: 720 * previewScale }}>
                 <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: 540, height: 720 }}>
-                  <CardRenderer data={data} onImageReady={setIsPreviewReady} />
+                  <CardRenderer data={data} renderId={previewRenderId} />
                 </div>
               </div>
             </div>
@@ -633,6 +656,20 @@ export default function CardEditor() {
             )}
           </div>
         </div>
+      </div>
+
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          left: -10000,
+          top: 0,
+          width: 540,
+          height: 720,
+          pointerEvents: 'none',
+        }}
+      >
+        <CardRenderer data={data} renderId={exportRenderId} onImageReady={setIsPreviewReady} />
       </div>
     </div>
   );
