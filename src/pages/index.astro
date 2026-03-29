@@ -1,0 +1,98 @@
+---
+import Layout from '@/layouts/Layout.astro';
+---
+
+<Layout title="TokCard - AI Developer Social Card" description="Generate your AI token usage card. Show the world how you build with AI.">
+  <main class="min-h-screen flex flex-col bg-[#fbfbfd]">
+
+    <!-- Nav -->
+    <nav class="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto w-full relative z-10">
+      <span class="text-xl font-semibold tracking-tight text-[#1d1d1f]">
+        TokCard
+      </span>
+      <a
+        href="/create"
+        class="text-sm font-medium px-4 py-2 rounded-full transition-all duration-300"
+        style="color: #0071e3; background: rgba(0, 113, 227, 0.08);"
+        onmouseover="this.style.background='rgba(0, 113, 227, 0.12)'"
+        onmouseout="this.style.background='rgba(0, 113, 227, 0.08)'"
+      >
+        Create Card
+      </a>
+    </nav>
+
+    <!-- Hero -->
+    <section class="flex-1 flex flex-col justify-center px-6 py-16 md:py-24 max-w-4xl mx-auto w-full relative text-center items-center">
+      
+      <div class="max-w-3xl relative z-10">
+        <h1 class="text-5xl md:text-7xl font-semibold tracking-tight leading-[1.1] text-[#1d1d1f]">
+          Show the world<br/>how you build with AI.
+        </h1>
+        <p class="mt-6 text-lg md:text-xl leading-relaxed max-w-2xl mx-auto text-[#86868b]">
+          Generate a beautiful card of your monthly token usage. Share it on WeChat, X, LinkedIn, Instagram &mdash; everywhere.
+        </p>
+
+        <div class="mt-10 flex flex-col items-center gap-4">
+          <a
+            href="/create"
+            class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] group bg-[#0071e3] text-white"
+            role="button"
+          >
+            Generate My Card
+          </a>
+          <span class="text-sm text-[#86868b]">
+            No sign-up. Free forever.
+          </span>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="mt-20 flex flex-wrap justify-center gap-12 md:gap-24 relative z-10">
+        <div class="flex flex-col items-center">
+          <div class="text-4xl md:text-5xl font-semibold tracking-tight tabular-nums text-[#1d1d1f]">30<span class="text-2xl text-[#86868b]">s</span></div>
+          <div class="text-xs font-medium mt-2 text-[#86868b]">To Generate</div>
+        </div>
+        <div class="flex flex-col items-center">
+          <div class="text-4xl md:text-5xl font-semibold tracking-tight tabular-nums text-[#1d1d1f]">4</div>
+          <div class="text-xs font-medium mt-2 text-[#86868b]">Clean Themes</div>
+        </div>
+        <div class="flex flex-col items-center">
+          <div class="text-4xl md:text-5xl font-semibold tracking-tight tabular-nums text-[#1d1d1f]">6<span class="text-[#86868b]">+</span></div>
+          <div class="text-xs font-medium mt-2 text-[#86868b]">Platforms</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="px-6 py-20 max-w-5xl mx-auto w-full border-t border-[#d2d2d7]/30">
+      <h2 class="text-3xl font-semibold tracking-tight mb-12 text-center text-[#1d1d1f]">
+        How it works
+      </h2>
+      <div class="space-y-12 md:space-y-0 md:grid md:grid-cols-3 md:gap-12">
+        <div class="flex flex-col items-center text-center">
+          <div class="w-12 h-12 rounded-full bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center font-semibold text-lg mb-6">1</div>
+          <h3 class="font-semibold text-xl mb-3 text-[#1d1d1f]">Enter your data</h3>
+          <p class="text-[15px] leading-relaxed text-[#86868b]">Fill in token usage, pick a theme, and customize your card with AI-generated slogans.</p>
+        </div>
+        <div class="flex flex-col items-center text-center">
+          <div class="w-12 h-12 rounded-full bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center font-semibold text-lg mb-6">2</div>
+          <h3 class="font-semibold text-xl mb-3 text-[#1d1d1f]">Preview in real-time</h3>
+          <p class="text-[15px] leading-relaxed text-[#86868b]">See changes instantly. Download as a high-resolution PNG ready for sharing.</p>
+        </div>
+        <div class="flex flex-col items-center text-center">
+          <div class="w-12 h-12 rounded-full bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center font-semibold text-lg mb-6">3</div>
+          <h3 class="font-semibold text-xl mb-3 text-[#1d1d1f]">Share everywhere</h3>
+          <p class="text-[15px] leading-relaxed text-[#86868b]">WeChat, X, LinkedIn, Instagram, Xiaohongshu &mdash; one card, every platform.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="px-6 py-8 text-[13px] max-w-6xl mx-auto w-full text-[#86868b] border-t border-[#d2d2d7]/30">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <p>TokCard.dev &mdash; AI Developer Social Card</p>
+        <p>Open source. No tracking. Your data stays local.</p>
+      </div>
+    </footer>
+  </main>
+</Layout>

@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* Brand palette - warm amber + deep violet, intentional & distinctive */
+  --color-brand-primary: oklch(65% 0.18 280);
+  --color-brand-accent: oklch(75% 0.16 55);
+  --color-brand-accent-light: oklch(88% 0.08 55);
+
+  /* Tinted neutrals - subtle warm tint for cohesion */
+  --color-surface-dark: oklch(12% 0.01 280);
+  --color-surface-base: oklch(15% 0.01 280);
+  --color-surface-raised: oklch(20% 0.015 280);
+  --color-surface-overlay: oklch(25% 0.015 280);
+
+  /* Text colors - tinted, never pure gray */
+  --color-text-primary: oklch(95% 0.01 280);
+  --color-text-secondary: oklch(75% 0.02 280);
+  --color-text-tertiary: oklch(55% 0.02 280);
+  --color-text-muted: oklch(42% 0.015 280);
+
+  /* Minimal variables for any custom CSS (mostly handled in Tailwind now) */
+}
+
+/* Global styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Focus styles - visible keyboard focus */
+:focus-visible {
+  outline: 2px solid oklch(65% 0.18 280);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+
+/* Progress bar styles */
+.progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Token number animation-ready */
+.token-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

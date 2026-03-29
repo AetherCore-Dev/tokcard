@@ -1,0 +1,39 @@
+{
+  "name": "tokcard",
+  "version": "1.0.0",
+  "description": "TokCard.dev - AI Developer Social Card Generator",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "keywords": [
+    "ai",
+    "token",
+    "card",
+    "developer"
+  ],
+  "author": "allenenli",
+  "license": "MIT",
+  "overrides": {
+    "vite": "^7"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^13.1.4",
+    "@astrojs/react": "^5.0.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@zumer/snapdom": "^2.7.0",
+    "astro": "^6.1.1",
+    "html-to-image": "^1.11.13",
+    "modern-screenshot": "^4.6.8",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.2"
+  }
+}
