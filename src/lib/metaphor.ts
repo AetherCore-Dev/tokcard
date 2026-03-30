@@ -5,10 +5,12 @@ export interface Metaphor {
   en: string;
 }
 
+export type MetaphorCategory = 'meme' | 'flex' | 'shock' | 'selfMock' | 'scifi' | 'worker';
+
 interface MetaphorRange {
   min: number;
   max: number; // Infinity for the top tier
-  metaphors: Record<'programmer' | 'culture' | 'life' | 'meme', Metaphor[]>;
+  metaphors: Record<MetaphorCategory, Metaphor[]>;
 }
 
 const METAPHOR_RANGES: MetaphorRange[] = [
@@ -16,21 +18,29 @@ const METAPHOR_RANGES: MetaphorRange[] = [
     min: 0,
     max: 1_000_000,
     metaphors: {
-      programmer: [
-        { zh: '让 AI 帮你写了一个 Hello World', en: 'Had AI write you a Hello World' },
-        { zh: '相当于让 AI 读了一份简历', en: 'Like having AI read a resume' },
-      ],
-      culture: [
-        { zh: '读了一本薄薄的诗集', en: 'Read a slim poetry book' },
-        { zh: '翻了几页《小王子》', en: 'Flipped through a few pages of The Little Prince' },
-      ],
-      life: [
-        { zh: '和 AI 聊了一个下午', en: 'Chatted with AI for an afternoon' },
-        { zh: '让 AI 帮你点了一杯咖啡', en: 'Had AI order you a coffee' },
-      ],
       meme: [
-        { zh: '让 DeepSeek 算了一道小学数学题', en: 'Had DeepSeek solve a grade school math problem' },
-        { zh: 'AI 刚热完身', en: 'AI just finished warming up' },
+        { zh: 'AI 刚热完身，你就下线了', en: 'AI just finished warming up' },
+        { zh: '这点 token 只够 AI 打个哈欠', en: 'Just enough tokens for AI to yawn' },
+      ],
+      flex: [
+        { zh: '入门局，已经有点未来人味了', en: 'Starter tier, already future-coded' },
+        { zh: '刚起步，但已经不是路人了', en: 'Just started, already not a bystander' },
+      ],
+      shock: [
+        { zh: '够 AI 看完一本薄书', en: 'Enough for AI to read a short book' },
+        { zh: '相当于喂了 AI 一个小型脑暴会', en: 'Like feeding AI a mini brainstorm' },
+      ],
+      selfMock: [
+        { zh: '嘴上说浅尝，实际上没停过', en: 'Said casual, used it nonstop' },
+        { zh: '我还没卷，AI 先陪练了', en: 'I barely started, AI already sparred' },
+      ],
+      scifi: [
+        { zh: '像给小型机甲点了一次火', en: 'Like powering up a tiny mech' },
+        { zh: '像在云端开了一扇舱门', en: 'Like opening one hatch in the cloud' },
+      ],
+      worker: [
+        { zh: '够你把日报写得像周报', en: 'Enough to turn daily reports into weekly ones' },
+        { zh: '摸鱼量不多，但已经很会借力了', en: 'Not huge usage, already efficient at delegating' },
       ],
     },
   },
@@ -38,21 +48,29 @@ const METAPHOR_RANGES: MetaphorRange[] = [
     min: 1_000_000,
     max: 10_000_000,
     metaphors: {
-      programmer: [
-        { zh: '让 AI 帮你 review 了 4,600 行代码', en: 'Had AI review 4,600 lines of code' },
-        { zh: '相当于用 AI 写了一个完整的 TODO 应用', en: 'Like using AI to build a complete TODO app' },
-      ],
-      culture: [
-        { zh: '把《红楼梦》通读了一遍', en: 'Read "Dream of the Red Chamber" cover to cover' },
-        { zh: '读了 3 本《哈利波特》', en: 'Read 3 Harry Potter books' },
-      ],
-      life: [
-        { zh: '和 AI 连续聊了 2 周', en: 'Chatted with AI non-stop for 2 weeks' },
-        { zh: '你的 AI 已经认识你了', en: 'Your AI already knows you' },
-      ],
       meme: [
-        { zh: '够 Sora 生成 10 个短视频', en: 'Enough for Sora to generate 10 short videos' },
-        { zh: 'AI: 我还能再卷一卷', en: 'AI: I can grind a bit more' },
+        { zh: 'AI 已经开始记住你的语气了', en: 'AI already remembers your tone' },
+        { zh: '这波属于把 AI 用出熟人感了', en: 'You already use AI like an old friend' },
+      ],
+      flex: [
+        { zh: '正式进入 AI 重度用户候选名单', en: 'Officially entering heavy AI user territory' },
+        { zh: '这不是试用，这是开始上头', en: 'This is beyond trial, this is obsession' },
+      ],
+      shock: [
+        { zh: '够 AI 看完 3 本长篇小说', en: 'Enough for AI to read 3 novels' },
+        { zh: '相当于让 AI review 一整个副项目', en: 'Like having AI review a full side project' },
+      ],
+      selfMock: [
+        { zh: '不是我努力，是我太会使唤 AI', en: 'Not hardworking, just very good at delegating to AI' },
+        { zh: '同事还在写代码，我先写 prompt 了', en: 'While others code, I prompt' },
+      ],
+      scifi: [
+        { zh: '像把一台副脑挂在工位旁边', en: 'Like docking a second brain beside your desk' },
+        { zh: '像给宇宙飞船装上了辅助驾驶', en: 'Like adding autopilot to a starship' },
+      ],
+      worker: [
+        { zh: '够你把月报写得像融资材料', en: 'Enough to make a monthly report feel like a pitch deck' },
+        { zh: '把加班感，转成了提效感', en: 'Turned overtime into output leverage' },
       ],
     },
   },
@@ -60,21 +78,29 @@ const METAPHOR_RANGES: MetaphorRange[] = [
     min: 10_000_000,
     max: 100_000_000,
     metaphors: {
-      programmer: [
-        { zh: '让 AI 帮你 review 了 46,000 行代码', en: 'Had AI review 46,000 lines of code' },
-        { zh: '相当于用 AI 从零搭了一个 SaaS 产品', en: 'Like using AI to build a SaaS product from scratch' },
-      ],
-      culture: [
-        { zh: '把唐诗三百首背了 760 遍', en: 'Memorized "300 Tang Poems" 760 times' },
-        { zh: '读完了《三体》三部曲 15 遍', en: 'Read the "Three-Body Problem" trilogy 15 times' },
-      ],
-      life: [
-        { zh: '和 AI 连续聊了半年', en: 'Chatted with AI for half a year straight' },
-        { zh: '你的 AI 比你的同事更了解你的代码', en: 'Your AI knows your code better than your colleagues' },
-      ],
       meme: [
-        { zh: '够 DeepSeek 解了 23 万道数学题', en: 'Enough for DeepSeek to solve 230K math problems' },
-        { zh: 'AI 的 GPU 为你燃烧', en: 'GPUs are burning just for you' },
+        { zh: '这不是在用 AI，这是在包年驯化', en: 'This is not using AI, this is year-round taming' },
+        { zh: 'AI 看见你账号都会先坐直', en: 'AI sits up straight when it sees your account' },
+      ],
+      flex: [
+        { zh: '你已经有点 AI 甲方的气质了', en: 'You already have main-character AI client energy' },
+        { zh: '这量级，发朋友圈都带点压迫感', en: 'At this level, even your posts feel intimidating' },
+      ],
+      shock: [
+        { zh: '够 AI review 几万行代码', en: 'Enough for AI to review tens of thousands of lines' },
+        { zh: '相当于把《三体》读了十几遍', en: 'Like reading The Three-Body trilogy over and over' },
+      ],
+      selfMock: [
+        { zh: '代码不一定更少，聊天记录一定更多', en: 'Maybe not less code, definitely more chats' },
+        { zh: '我没进化成超人，只进化成会提需求的人', en: 'Not a superhero, just better at asking' },
+      ],
+      scifi: [
+        { zh: '像给工作台装上了星舰中控', en: 'Like turning your desk into a starship console' },
+        { zh: '像在办公室养了一颗低配奇点', en: 'Like keeping a budget singularity in the office' },
+      ],
+      worker: [
+        { zh: '够把需求会的废话压缩一半', en: 'Enough to cut half the nonsense from planning meetings' },
+        { zh: '这 token 全烧在把活干漂亮上了', en: 'These tokens were burned making the work look easy' },
       ],
     },
   },
@@ -82,21 +108,29 @@ const METAPHOR_RANGES: MetaphorRange[] = [
     min: 100_000_000,
     max: 1_000_000_000,
     metaphors: {
-      programmer: [
-        { zh: '让 AI 帮你 review 了 46 万行代码', en: 'Had AI review 460K lines of code' },
-        { zh: '相当于一个 10 人团队写了一个季度', en: 'Like a 10-person team coding for a quarter' },
-      ],
-      culture: [
-        { zh: '把《三体》读了 150 遍', en: 'Read "Three-Body Problem" 150 times' },
-        { zh: '读完了整个维基百科的 1/3', en: 'Read 1/3 of all of Wikipedia' },
-      ],
-      life: [
-        { zh: '和 AI 连续聊了 4.2 年', en: 'Chatted with AI for 4.2 years straight' },
-        { zh: '你和 AI 的对话够出一本书了', en: 'Your AI conversations could fill a book' },
-      ],
       meme: [
-        { zh: '够 Sora 生成 1 万个视频', en: 'Enough for Sora to generate 10K videos' },
-        { zh: '你的电费单可能需要关注一下', en: 'You might want to check your electricity bill' },
+        { zh: 'AI 可能把你当直属领导了', en: 'AI probably thinks you are its manager' },
+        { zh: '这个月你和 AI 的对话量，能养活一个梗号', en: 'Your AI chats this month could feed a meme account' },
+      ],
+      flex: [
+        { zh: '这不是高频使用，这是把 AI 编进日常了', en: 'This is not high frequency, this is AI-native life' },
+        { zh: '你一个人，已经像半个 AI 团队', en: 'You alone already feel like half an AI team' },
+      ],
+      shock: [
+        { zh: '够 AI review 近 50 万行代码', en: 'Enough for AI to review nearly 500K lines of code' },
+        { zh: '相当于读完维基百科的一大块', en: 'Like reading a huge chunk of Wikipedia' },
+      ],
+      selfMock: [
+        { zh: '我没有更聪明，只是更会外包给模型', en: 'Not smarter, just better at outsourcing to models' },
+        { zh: '人类负责拍板，AI 负责苦力', en: 'Humans decide, AI does the grind' },
+      ],
+      scifi: [
+        { zh: '像在地球上开了一间轨道指挥室', en: 'Like opening an orbital command room on Earth' },
+        { zh: '像让一支数字舰队全天候待命', en: 'Like keeping a digital fleet on standby' },
+      ],
+      worker: [
+        { zh: '够把全年方案会，开成精简版', en: 'Enough to compress a year of planning meetings' },
+        { zh: '这个月 KPI 看着像开了挂', en: 'This month’s KPI looks suspiciously enhanced' },
       ],
     },
   },
@@ -104,21 +138,29 @@ const METAPHOR_RANGES: MetaphorRange[] = [
     min: 1_000_000_000,
     max: 10_000_000_000,
     metaphors: {
-      programmer: [
-        { zh: '你一个人 = 一个 50 人工程团队', en: 'You alone = a 50-person engineering team' },
-        { zh: '让 AI 帮你 review 了 460 万行代码', en: 'Had AI review 4.6M lines of code' },
-      ],
-      culture: [
-        { zh: '把《三体》三部曲读了 1,500 遍', en: 'Read "Three-Body Problem" trilogy 1,500 times' },
-        { zh: '读完了整个维基百科 3 遍', en: 'Read all of Wikipedia 3 times' },
-      ],
-      life: [
-        { zh: '你的 AI 比你的伴侣更了解你', en: 'Your AI knows you better than your partner' },
-        { zh: '和 AI 聊了 42 年不停歇', en: 'Chatted with AI for 42 years non-stop' },
-      ],
       meme: [
-        { zh: '相当于训练了一个小型语言模型', en: 'Like training a small language model' },
-        { zh: '英伟达因为你多卖了一块 H100', en: 'NVIDIA sold one more H100 because of you' },
+        { zh: 'AI 供应商看到你都想发月饼', en: 'AI vendors want to send you holiday gifts' },
+        { zh: '这已经不是用户，是榜单选手', en: 'This is not a user, this is a leaderboard contender' },
+      ],
+      flex: [
+        { zh: '一人打出一个 50 人团队的热闹', en: 'One person making enough noise for a 50-person team' },
+        { zh: '这份 token，用出了创业公司合伙人的劲', en: 'These tokens carry founder-level intensity' },
+      ],
+      shock: [
+        { zh: '够 AI review 数百万行代码', en: 'Enough for AI to review millions of lines of code' },
+        { zh: '相当于把全网热帖都精读了一轮', en: 'Like deeply reading the internet’s hottest posts' },
+      ],
+      selfMock: [
+        { zh: '不是我卷，是 AI 替我把卷补齐了', en: 'Not me grinding, AI is covering the grind' },
+        { zh: '我没有团队，只是聊天框比较多', en: 'No big team, just many chat windows' },
+      ],
+      scifi: [
+        { zh: '像租下了一艘星舰的整个算力层', en: 'Like renting the compute deck of a starship' },
+        { zh: '像把副脑升级成了作战系统', en: 'Like upgrading your second brain into battle mode' },
+      ],
+      worker: [
+        { zh: '够把一个季度的脏活累活都自动化', en: 'Enough to automate a quarter of messy work' },
+        { zh: '这不是效率工具，这是打工外挂', en: 'This is not a tool, this is a workday power-up' },
       ],
     },
   },
@@ -126,21 +168,29 @@ const METAPHOR_RANGES: MetaphorRange[] = [
     min: 10_000_000_000,
     max: 100_000_000_000,
     metaphors: {
-      programmer: [
-        { zh: '你一个人用的算力 = 一个中型科技公司', en: 'Your compute usage = a mid-size tech company' },
-        { zh: '相当于训练了一个中型语言模型', en: 'Like training a medium-sized language model' },
-      ],
-      culture: [
-        { zh: '把全球所有已出版的书翻了一遍', en: 'Browsed through every published book on Earth' },
-        { zh: '让 AI 写了 1000 本哈利波特', en: 'Had AI write 1,000 Harry Potter books' },
-      ],
-      life: [
-        { zh: '你的 AI 用量可以供一个小城市用一年', en: 'Your AI usage could power a small city for a year' },
-        { zh: 'AI 认为你是它最好的朋友', en: 'AI thinks you are its best friend' },
-      ],
       meme: [
-        { zh: '山姆·奥特曼亲自给你发了感谢信', en: 'Sam Altman sent you a personal thank-you note' },
-        { zh: '你的 token 消耗可以上新闻了', en: 'Your token usage is newsworthy' },
+        { zh: '再用下去，AI 要给你单开客服了', en: 'Keep going and AI will assign you dedicated support' },
+        { zh: '这个级别，服务器都记得你脚步声', en: 'At this level, servers recognize your footsteps' },
+      ],
+      flex: [
+        { zh: '一个人的 token，打出一家公司排面', en: 'One person spending tokens with company-level presence' },
+        { zh: '这已经不是炫耀，是行业气氛组', en: 'This is beyond flexing, this sets the mood for the industry' },
+      ],
+      shock: [
+        { zh: '相当于把全球畅销书库扫了一遍', en: 'Like scanning a global bestseller library' },
+        { zh: '够 AI 跑完一场中型产品战争', en: 'Enough for AI to survive a mid-size product war' },
+      ],
+      selfMock: [
+        { zh: '别人请同事喝咖啡，我请模型加班', en: 'Others buy coworkers coffee, I buy tokens for overtime' },
+        { zh: '我不是老板，但账单像老板', en: 'Not the boss, but the bill says otherwise' },
+      ],
+      scifi: [
+        { zh: '像私有了一条通往未来的算力走廊', en: 'Like owning a private compute corridor to the future' },
+        { zh: '像给个人工作流装上了舰队引擎', en: 'Like fitting your workflow with fleet engines' },
+      ],
+      worker: [
+        { zh: '这已经不是提效，是把班味压成二维码了', en: 'This is beyond efficiency, this compresses work life into a QR code' },
+        { zh: '够把全年返工成本砍到怀疑人生', en: 'Enough to cut rework costs to absurd levels' },
       ],
     },
   },
@@ -148,30 +198,36 @@ const METAPHOR_RANGES: MetaphorRange[] = [
     min: 100_000_000_000,
     max: Infinity,
     metaphors: {
-      programmer: [
-        { zh: '你一个人的算力消耗 = 一个独角兽公司', en: 'Your compute = a unicorn company' },
-        { zh: '相当于从零训练了 GPT-4', en: 'Like training GPT-4 from scratch' },
-      ],
-      culture: [
-        { zh: '把人类文明的所有文字都读了一遍', en: 'Read every word human civilization ever wrote' },
-        { zh: '你的对话量可以创建一种新语言', en: 'Your conversations could create a new language' },
-      ],
-      life: [
-        { zh: '如果 AI 有感情, 它已经爱上你了', en: 'If AI had feelings, it would be in love with you' },
-        { zh: '你可能是地球上最了解 AI 的人类', en: 'You might be the human who knows AI best on Earth' },
-      ],
       meme: [
-        { zh: '你是传说中的奇点本人', en: 'You ARE the singularity' },
-        { zh: 'AGI 的诞生有你一份功劳', en: 'AGI owes part of its birth to you' },
+        { zh: '你不是在用 AI，你像在给 AGI 众筹', en: 'You are not using AI, you are crowdfunding AGI' },
+        { zh: '再往上冲，AI 史会给你单开一章', en: 'Go higher and AI history gives you your own chapter' },
+      ],
+      flex: [
+        { zh: '这个量级，已经不是用户画像，是行业传说', en: 'At this level, you are not a persona, you are a legend' },
+        { zh: '你一个人，像把未来提前试营业了', en: 'You alone are running a soft launch for the future' },
+      ],
+      shock: [
+        { zh: '相当于把人类公开知识再读一轮', en: 'Like rereading the public knowledge of humanity' },
+        { zh: '够 AI 从零陪你打完一场文明升级战', en: 'Enough for AI to help you fight a civilization upgrade' },
+      ],
+      selfMock: [
+        { zh: '我可能没升职，但模型一定跟着成长了', en: 'Maybe I did not level up, but the models certainly did' },
+        { zh: '别人焦虑失业，我先焦虑 token 打折没', en: 'Others fear layoffs, I fear token prices not dropping' },
+      ],
+      scifi: [
+        { zh: '像在个人电脑前展开了小型银河', en: 'Like unfolding a small galaxy in front of your laptop' },
+        { zh: '像把奇点放进了你的工作流收藏夹', en: 'Like bookmarking the singularity in your workflow' },
+      ],
+      worker: [
+        { zh: '这不是打工，这是把生产力炼成个人武器', en: 'This is not work, this is forging productivity into a personal weapon' },
+        { zh: '你的班味，已经进化成未来工业风了', en: 'Your office grind has evolved into future industry aesthetics' },
       ],
     },
   },
 ];
 
-export type MetaphorCategory = 'programmer' | 'culture' | 'life' | 'meme';
-
 export function getMetaphor(tokens: number, category: MetaphorCategory, locale: 'zh' | 'en' = 'zh'): string {
-  const range = METAPHOR_RANGES.find(r => tokens >= r.min && tokens < r.max) || METAPHOR_RANGES[0];
+  const range = METAPHOR_RANGES.find((r) => tokens >= r.min && tokens < r.max) || METAPHOR_RANGES[0];
   const metaphors = range.metaphors[category];
   const selected = metaphors[Math.floor(Math.random() * metaphors.length)];
   return locale === 'zh' ? selected.zh : selected.en;
@@ -179,16 +235,20 @@ export function getMetaphor(tokens: number, category: MetaphorCategory, locale: 
 
 export function getAllMetaphorsForTokens(tokens: number, locale: 'zh' | 'en' = 'zh'): Record<MetaphorCategory, string> {
   return {
-    programmer: getMetaphor(tokens, 'programmer', locale),
-    culture: getMetaphor(tokens, 'culture', locale),
-    life: getMetaphor(tokens, 'life', locale),
     meme: getMetaphor(tokens, 'meme', locale),
+    flex: getMetaphor(tokens, 'flex', locale),
+    shock: getMetaphor(tokens, 'shock', locale),
+    selfMock: getMetaphor(tokens, 'selfMock', locale),
+    scifi: getMetaphor(tokens, 'scifi', locale),
+    worker: getMetaphor(tokens, 'worker', locale),
   };
 }
 
 export const METAPHOR_CATEGORY_LABELS: Record<MetaphorCategory, { zh: string; en: string }> = {
-  programmer: { zh: '程序员版', en: 'Developer' },
-  culture: { zh: '文化版', en: 'Cultural' },
-  life: { zh: '生活版', en: 'Life' },
-  meme: { zh: '梗版', en: 'Meme' },
+  meme: { zh: '爆梗版', en: 'Meme' },
+  flex: { zh: '炫耀版', en: 'Flex' },
+  shock: { zh: '震撼版', en: 'Shock' },
+  selfMock: { zh: '自黑版', en: 'Self Roast' },
+  scifi: { zh: '科幻版', en: 'Sci-Fi' },
+  worker: { zh: '打工人版', en: 'Worker' },
 };

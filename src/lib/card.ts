@@ -7,11 +7,23 @@ export interface CardData {
   customMetaphor: string;
   totalTokens: number;
   channel: 'claude' | 'gpt' | 'cursor' | 'deepseek' | 'gemini' | 'other';
-  theme: 'brand-dark' | 'brand-light' | 'bold-violet' | 'mono-brutal';
+  theme:
+    | 'brand-dark'
+    | 'brand-light'
+    | 'bold-violet'
+    | 'mono-brutal'
+    | 'terminal-green'
+    | 'cyberpunk-neon'
+    | 'gradient-dream'
+    | 'sunset-warm'
+    | 'ocean-blue'
+    | 'minimal-gray';
+  backgroundType: 'none' | 'preset' | 'custom';
+  backgroundValue: string;
   modelBreakdown: ModelBreakdown[];
   qrcodeUrl: string;
   platform: PlatformKey;
-  metaphorCategory: 'programmer' | 'culture' | 'life' | 'meme';
+  metaphorCategory: 'meme' | 'flex' | 'shock' | 'selfMock' | 'scifi' | 'worker';
   locale: 'zh' | 'en';
 }
 
@@ -50,6 +62,12 @@ export const CHANNELS = [
   { value: 'other', label: 'Other / Mixed', color: '#6b7280' },
 ] as const;
 
+export const PRESET_BACKGROUNDS = [
+  { value: '/images/backgrounds/neon-circuit.jpg', label: 'Neon Circuit', labelZh: '霓虹电路' },
+  { value: '/images/backgrounds/neon-nebula.jpg', label: 'Neon Nebula', labelZh: '霓虹星云' },
+  { value: '/images/backgrounds/neon-orbs.jpg', label: 'Neon Orbs', labelZh: '霓虹光球' },
+] as const;
+
 export const DEFAULT_CARD_DATA: CardData = {
   username: '',
   avatarType: 'emoji',
@@ -59,13 +77,15 @@ export const DEFAULT_CARD_DATA: CardData = {
   totalTokens: 0,
   channel: 'claude',
   theme: 'brand-light',
+  backgroundType: 'none',
+  backgroundValue: '',
   modelBreakdown: [
     { name: 'Claude', percentage: 70, color: '#d97706' },
     { name: 'GPT', percentage: 30, color: '#10b981' },
   ],
   qrcodeUrl: '',
   platform: 'wechat',
-  metaphorCategory: 'programmer',
+  metaphorCategory: 'flex',
   locale: 'zh',
 };
 
