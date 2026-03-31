@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 
 import * as QRCode from 'qrcode';
 import type { CardData } from '@/lib/card';
-import { formatTokens, formatTokensFull } from '@/lib/card';
+import { buildSharedCardUrl, formatTokens, formatTokensFull } from '@/lib/card';
 import { calculateTitle, getRandomTags } from '@/lib/titles';
 import { getMetaphor } from '@/lib/metaphor';
 import { CHANNELS } from '@/lib/card';
@@ -54,19 +54,26 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
   }, [data.theme]);
 
   useEffect(() => {
-    if (data.qrcodeUrl) {
-      QRCode.toDataURL(data.qrcodeUrl, {
-        width: 256,
-        margin: 1,
-        color: qrColors,
-        errorCorrectionLevel: 'M',
-      })
-        .then((url) => setQrDataUrl(url))
-        .catch(() => setQrDataUrl(''));
-    } else {
+    if (typeof window === 'undefined' || !data.qrcodeUrl) {
       setQrDataUrl('');
+      return;
     }
-  }, [data.qrcodeUrl, qrColors]);
+
+    const sharedUrl = buildSharedCardUrl(data, window.location.origin);
+    if (!sharedUrl) {
+      setQrDataUrl('');
+      return;
+    }
+
+    QRCode.toDataURL(sharedUrl, {
+      width: 256,
+      margin: 1,
+      color: qrColors,
+      errorCorrectionLevel: 'M',
+    })
+      .then((url) => setQrDataUrl(url))
+      .catch(() => setQrDataUrl(''));
+  }, [data, qrColors]);
 
   
   // --- PRELOAD EXTERNAL IMAGES FOR SAFE EXPORT ---
@@ -820,7 +827,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   fontSize: 8 * s, color: tc.textMuted, marginTop: 4 * s,
                   textAlign: 'center', letterSpacing: '0.06em', textTransform: 'uppercase',
                 }}>
-                  {isZh ? '扫码查看' : 'Scan me'}
+                  {isZh ? '扫码看我的 AI 战绩' : 'Scan to view my AI card'}
                 </div>
               </div>
             )}

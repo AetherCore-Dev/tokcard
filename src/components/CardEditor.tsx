@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { parseAIOptions } from '@/lib/deepseek';
 import type { CardData, ModelBreakdown } from '@/lib/card';
-import { DEFAULT_CARD_DATA, PLATFORMS, PRESET_BACKGROUNDS } from '@/lib/card';
+import { buildSharedCardUrl, decodeCardTemplatePreset, DEFAULT_CARD_DATA, PLATFORMS, PRESET_BACKGROUNDS } from '@/lib/card';
 import { getMetaphor, METAPHOR_CATEGORY_LABELS, type MetaphorCategory } from '@/lib/metaphor';
 import CardRenderer from './CardRenderer';
 import { domToBlob } from 'modern-screenshot';
@@ -58,6 +58,8 @@ export default function CardEditor() {
   const [sloganCategory, setSloganCategory] = useState<keyof typeof PRESET_SLOGANS_BY_CATEGORY>('hype');
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareCaption, setShareCaption] = useState('');
+  const [shareLink, setShareLink] = useState('');
+  const [copyFeedback, setCopyFeedback] = useState<'caption' | 'link' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,6 +92,17 @@ export default function CardEditor() {
     if (isIOS) setPlatform('ios');
     else if (isAndroid) setPlatform('android');
     else setPlatform('desktop');
+  }, []);
+
+  useEffect(() => {
+    const preset = new URLSearchParams(window.location.search).get('p');
+    if (!preset) return;
+
+    const decodedPreset = decodeCardTemplatePreset(preset);
+    if (!decodedPreset) return;
+
+    setData((prev) => ({ ...prev, ...decodedPreset }));
+    setTokenInput('');
   }, []);
 
   const isZh = data.locale === 'zh';
@@ -387,15 +400,34 @@ export default function CardEditor() {
       : `${data.username || 'I'} burned ${tokenText} AI tokens this month.\n${activeMetaphor}.\nBuilt this one for ${platformInfo.label}. Make yours at tokcard.dev\n#TokCard #AIFlex #VibeCoding`;
   }, [activeMetaphor, data.totalTokens, data.username, isZh, platformInfo.label, platformInfo.labelZh]);
 
+  const flashCopyFeedback = useCallback((type: 'caption' | 'link') => {
+    setCopyFeedback(type);
+    window.setTimeout(() => {
+      setCopyFeedback((current) => (current === type ? null : current));
+    }, 2000);
+  }, []);
+
   const handleCopyShareCaption = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(shareCaption || buildShareCaption());
-      alert(isZh ? '分享文案已复制' : 'Share caption copied');
+      flashCopyFeedback('caption');
     } catch (err) {
       console.error('Copy failed:', err);
       alert(isZh ? '复制失败，请手动复制' : 'Copy failed, please copy manually');
     }
-  }, [buildShareCaption, isZh, shareCaption]);
+  }, [buildShareCaption, flashCopyFeedback, isZh, shareCaption]);
+
+  const handleCopyShareLink = useCallback(async () => {
+    if (!shareLink) return;
+
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      flashCopyFeedback('link');
+    } catch (err) {
+      console.error('Copy failed:', err);
+      alert(isZh ? '复制失败，请手动复制' : 'Copy failed, please copy manually');
+    }
+  }, [flashCopyFeedback, isZh, shareLink]);
 
   const handleExport = useCallback(async () => {
     const el = document.getElementById(exportRenderId);
@@ -433,6 +465,7 @@ export default function CardEditor() {
 
       const filename = `tokcard-${data.username || 'card'}-${data.platform}.png`;
       const nextShareCaption = buildShareCaption();
+      const nextShareLink = buildSharedCardUrl(data, window.location.origin) ?? '';
       let shared = false;
 
       // Only attempt share on mobile devices where it behaves predictably
@@ -464,6 +497,8 @@ export default function CardEditor() {
       }
 
       setShareCaption(nextShareCaption);
+      setShareLink(nextShareLink);
+      setCopyFeedback(null);
       setShowShareSheet(true);
 
     } catch (err) {
@@ -476,7 +511,7 @@ export default function CardEditor() {
     } finally {
       setIsExporting(false);
     }
-  }, [buildShareCaption, data.platform, data.username, isZh, downloadViaLink, exportRenderId, isPreviewReady, waitForImagesToSettle]);
+  }, [buildShareCaption, data, isZh, downloadViaLink, exportRenderId, isPreviewReady, waitForImagesToSettle]);
 
   const MobileTabBar = () => (
     <div className="lg:hidden sticky top-0 z-20 -mx-4 px-4 py-3 bg-[#fbfbfd]/80 backdrop-blur-xl border-b border-[#d2d2d7]/30">
@@ -882,7 +917,7 @@ export default function CardEditor() {
                 className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
               />
               <p className="mt-2 text-xs text-[#86868b]">
-                {isZh ? '可放 GitHub、个人主页或项目链接。留空则不显示二维码。' : 'Add GitHub, portfolio, or project link. Leave empty to hide the QR code.'}
+                {isZh ? '可放 GitHub、个人主页或项目链接。扫码会先展示你的 TokCard，再一键前往这个链接。留空则不显示二维码。' : 'Add GitHub, portfolio, or project link. Scanning opens your TokCard first, then sends visitors to this link in one tap. Leave empty to hide the QR code.'}
               </p>
             </div>
 
@@ -962,7 +997,7 @@ export default function CardEditor() {
                   {isZh ? '晒图文案已准备好' : 'Your social caption is ready'}
                 </div>
                 <p className="mt-2 text-sm text-[#6b7280]">
-                  {isZh ? '复制后直接发朋友圈 / 小红书 / X。' : 'Copy it and post on WeChat, Xiaohongshu, or X.'}
+                  {isZh ? '图片已经导出。复制文案去发帖，想把这条链路也带出去时，再复制下方分享链接。' : 'Your card is exported. Copy the caption for posting, and copy the share link when you want the full TokCard flow to travel with it.'}
                 </p>
               </div>
               <button
@@ -980,7 +1015,21 @@ export default function CardEditor() {
               className="mt-5 h-44 w-full rounded-2xl border border-[#d1d5db] bg-[#f9fafb] p-4 text-sm leading-6 text-[#111827] focus:outline-none resize-none"
             />
 
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            {shareLink && (
+              <div className="mt-4 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
+                <div className="text-sm font-semibold text-[#1d1d1f]">
+                  {isZh ? '分享链接' : 'Share link'}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#6b7280]">
+                  {isZh ? '发在评论区、私聊或简介里，别人点开后会先看到你的 TokCard，再一键前往你的链接。' : 'Drop this in a comment, DM, or bio. People land on your TokCard first, then jump to your destination in one tap.'}
+                </p>
+                <div className="mt-3 rounded-xl border border-[#dbe4ff] bg-white px-4 py-3 text-xs leading-5 text-[#334155] break-all">
+                  {shareLink}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => setShowShareSheet(false)}
@@ -988,12 +1037,21 @@ export default function CardEditor() {
               >
                 {isZh ? '稍后再说' : 'Maybe later'}
               </button>
+              {shareLink && (
+                <button
+                  type="button"
+                  onClick={handleCopyShareLink}
+                  className="px-5 py-3 rounded-xl border border-[#dbe4ff] bg-white text-[#1d1d1f] font-medium hover:bg-[#f8fbff]"
+                >
+                  {copyFeedback === 'link' ? (isZh ? '分享链接已复制' : 'Share link copied') : (isZh ? '复制分享链接' : 'Copy share link')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleCopyShareCaption}
                 className="px-5 py-3 rounded-xl bg-[#0071e3] text-white font-semibold hover:opacity-95"
               >
-                {isZh ? '复制并去晒图' : 'Copy and post'}
+                {copyFeedback === 'caption' ? (isZh ? '文案已复制' : 'Caption copied') : (isZh ? '复制文案去晒图' : 'Copy caption and post')}
               </button>
             </div>
           </div>
