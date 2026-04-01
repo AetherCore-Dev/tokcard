@@ -37,7 +37,7 @@ export const onRequest: Handler = async (context) => {
   try {
     // Parse request body
     const body = await context.request.json();
-    const { username, tokens, locale, style = 'hype' } = body;
+    const { username, tokens, locale, style = 'hype', titleMode = 'personal' } = body;
 
     if (!username || tokens === undefined || !locale) {
       return new Response(
@@ -69,11 +69,18 @@ export const onRequest: Handler = async (context) => {
       geek: locale === 'zh' ? '极客、科技感、开发者黑话' : 'geeky, technical, dev-native',
     } as const;
 
+    const modeGuide = {
+      personal: locale === 'zh' ? '突出人的气场、身份感、个人能力' : 'focus on personal aura, identity, and capability',
+      project: locale === 'zh' ? '更像项目名片，强调作品和产出' : 'feel like a project business card, emphasizing output',
+      social: locale === 'zh' ? '更像社交平台标题，强调传播和评论欲' : 'feel like a social headline built for reposts and comments',
+    } as const;
+
     // Build prompt
     const prompt = locale === 'zh'
       ? `你是一个AI开发者社交名片的爆款文案专家。为用户"${username}"生成个性签名(slogan)，这个用户每月消耗${tokenDesc} tokens的AI算力。
 
 风格方向：${styleGuide[style as keyof typeof styleGuide] ?? styleGuide.hype}
+模式方向：${modeGuide[titleMode as keyof typeof modeGuide] ?? modeGuide.personal}
 
 要求：
 - 最多16个字
@@ -88,6 +95,7 @@ export const onRequest: Handler = async (context) => {
       : `You are writing viral copy for an AI developer social card. Create slogans for "${username}", who burns ${tokenDesc} tokens of AI compute monthly.
 
 Style direction: ${styleGuide[style as keyof typeof styleGuide] ?? styleGuide.hype}
+Mode direction: ${modeGuide[titleMode as keyof typeof modeGuide] ?? modeGuide.personal}
 
 Requirements:
 - Max 10 words

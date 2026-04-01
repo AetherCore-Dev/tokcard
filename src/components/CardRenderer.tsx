@@ -2,10 +2,21 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 
 import * as QRCode from 'qrcode';
 import type { CardData } from '@/lib/card';
-import { buildSharedCardUrl, formatTokens, formatTokensFull } from '@/lib/card';
-import { calculateTitle, getRandomTags } from '@/lib/titles';
+import {
+  buildSharedCardUrl,
+  CHANNELS,
+  formatProofDateRange,
+  formatTokens,
+  formatTokensFull,
+  getProofSourceLabel,
+  getRankingSignalDescription,
+  getRankingSignalLabel,
+  getTrustTierAccent,
+  getTrustTierLabel,
+} from '@/lib/card';
+import { calculateTitle, getRandomTags, getRankTier } from '@/lib/titles';
+import { getAchievements, getGrowthPercentage } from '@/lib/achievements';
 import { getMetaphor } from '@/lib/metaphor';
-import { CHANNELS } from '@/lib/card';
 
 interface CardRendererProps {
   data: CardData;
@@ -28,7 +39,10 @@ const imageRequestCache = new Map<string, Promise<string>>();
 
 export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-render', onImageReady }: CardRendererProps) {
   const title = calculateTitle(data.totalTokens);
-  const tags = useMemo(() => getRandomTags(2), []);
+  const rankTier = useMemo(() => getRankTier(data.totalTokens), [data.totalTokens]);
+  const achievements = useMemo(() => getAchievements(data), [data]);
+  const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
+  const tags = useMemo(() => getRandomTags(2), [data.username, data.totalTokens, data.channel]);
   const metaphor = useMemo(
     () => data.customMetaphor.trim() || getMetaphor(data.totalTokens, data.metaphorCategory, data.locale),
     [data.customMetaphor, data.totalTokens, data.metaphorCategory, data.locale]
@@ -257,11 +271,24 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
   const channelInfo = CHANNELS.find((c) => c.value === data.channel) || CHANNELS[5];
   const estimatedCost = Math.round(data.totalTokens * 0.000003);
   const now = new Date();
+  const featuredProjects = data.projects.filter((project) => project.name && project.url).slice(0, 3);
+  const leadingAchievement = achievements[0];
+  const leadingModel = data.modelBreakdown.slice().sort((a, b) => b.percentage - a.percentage)[0];
   const dateStr = now.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
   // Compact token display for large numbers
   const tokenDisplay = data.totalTokens > 0 ? formatTokensFull(data.totalTokens) : '0';
   const tokenShort = data.totalTokens > 0 ? formatTokens(data.totalTokens) : '0';
+  const trustTierLabel = getTrustTierLabel(data.trustTier, data.locale);
+  const trustTierAccent = getTrustTierAccent(data.trustTier);
+  const proofSourceLabel = data.proofSource ? getProofSourceLabel(data.proofSource, data.locale) : '';
+  const proofRangeLabel = formatProofDateRange(data.proofDateRange, data.locale);
+  const rankingSignalLabel = getRankingSignalLabel(rankTier, data.trustTier, data.locale);
+  const rankingSignalDescription = getRankingSignalDescription(rankTier, data.trustTier, data.locale);
+  const trustSummary = [trustTierLabel, rankingSignalLabel, proofSourceLabel, proofRangeLabel].filter(Boolean).join(' · ');
+  const heroSupportLine = isZh
+    ? `${rankingSignalLabel} · ${leadingModel?.name ?? channelInfo.label.split(' ')[0]} 主力 · ${leadingAchievement ? leadingAchievement.label : '持续输出'}`
+    : `${rankingSignalLabel} · ${leadingModel?.name ?? channelInfo.label.split(' ')[0]} primary · ${leadingAchievement ? leadingAchievement.labelEn : 'steady output'}`;
 
   const tc = {
     'brand-dark': {
@@ -421,7 +448,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
         fontFamily: font,
         position: 'relative',
         overflow: 'hidden',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'background 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         borderRadius: data.theme === 'mono-brutal' ? 0 : 20 * s,
         border: data.theme === 'mono-brutal'
           ? `3px solid ${tc.accent}`
@@ -439,6 +466,17 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
       }}
     >
       {/* ===== BACKGROUND LAYERS ===== */}
+
+      <div
+        style={{
+          position: 'absolute',
+          inset: 10 * s,
+          borderRadius: data.theme === 'mono-brutal' ? 0 : 18 * s,
+          border: data.theme === 'mono-brutal' ? 'none' : '1px solid rgba(255,255,255,0.08)',
+          pointerEvents: 'none',
+          opacity: data.theme === 'brand-light' || data.theme === 'minimal-gray' ? 0.55 : 1,
+        }}
+      />
 
       {resolvedBackground && (
         <>
@@ -517,13 +555,46 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
 
         {/* == HEADER == */}
         <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 * s }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6 * s,
+              padding: `${5 * s}px ${10 * s}px`,
+              borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+              background: tc.panelBg,
+              border: `1px solid ${tc.panelBorder}`,
+              fontSize: 10 * s,
+              fontWeight: 700,
+              color: tc.textDim,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}>
+              <span>{isZh ? 'AI 战绩卡' : 'AI CARD'}</span>
+              <span style={{ opacity: 0.55 }}>·</span>
+              <span>{tokenShort}</span>
+            </div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6 * s,
+              padding: `${5 * s}px ${10 * s}px`,
+              borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+              background: `${rankTier.accent}14`,
+              border: `1px solid ${rankTier.accent}30`,
+              fontSize: 10 * s,
+              fontWeight: 800,
+              color: rankTier.accent,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}>
+              <span>{rankTier.badge}</span>
+              <span>{isZh ? rankTier.label : rankTier.labelEn}</span>
+            </div>
+          </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 * s }}>
             {/* Avatar with ring */}
             <div style={{
               width: 58 * s, height: 58 * s,
               borderRadius: data.theme === 'mono-brutal' ? 4 * s : '50%',
               padding: 3 * s,
-              transition: 'all 0.4s ease',
+              transition: 'background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
               background: data.theme === 'mono-brutal'
                 ? '#000000'
                 : `linear-gradient(135deg, ${tc.accent}, ${tc.accent2})`,
@@ -551,13 +622,15 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                     />
                   ) : isImageLoading ? (
-                    <span style={{ 
-                      fontSize: 18 * s, 
-                      color: tc.textDim,
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                    }}>
-                      ⏳
-                    </span>
+                    <span
+                      className="skeleton-shimmer"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'block',
+                        borderRadius: data.theme === 'mono-brutal' ? 2 * s : '50%',
+                      }}
+                    />
                   ) : (
                     <span style={{ fontSize: 22 * s, fontWeight: 800, color: tc.textDim }}>
                       {(data.username || 'A').charAt(0).toUpperCase()}
@@ -573,9 +646,12 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
 
             {/* Name block */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 * s }}>
+              <div style={{ fontSize: 9 * s, fontWeight: 700, color: tc.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+                {isZh ? '开发者身份' : 'Builder identity'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 * s, marginTop: 4 * s }}>
                 <span style={{
-                  fontSize: 20 * s, fontWeight: 800, letterSpacing: '-0.03em',
+                  fontSize: 22 * s, fontWeight: 900, letterSpacing: '-0.04em',
                   color: tc.text,
                 }}>
                   {data.theme === 'terminal-green' ? '$ ' : ''}{data.username || 'anonymous'}
@@ -594,13 +670,45 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 </span>
               </div>
               <div style={{
-                fontSize: 11 * s, color: tc.textDim,
-                marginTop: 5 * s,
+                fontSize: 11 * s, color: tc.textSecondary,
+                marginTop: 7 * s,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 fontStyle: data.theme === 'terminal-green' ? 'normal' : 'italic',
                 letterSpacing: '0.01em',
               }}>
-                {data.theme === 'mono-brutal' ? '' : '"'}{data.slogan || 'Build with AI'}{data.theme === 'mono-brutal' ? '' : '"'}
+                {data.theme === 'mono-brutal' ? '' : '“'}{data.slogan || 'Build with AI'}{data.theme === 'mono-brutal' ? '' : '”'}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 * s, marginTop: 9 * s }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4 * s,
+                  padding: `${4 * s}px ${8 * s}px`,
+                  borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                  fontSize: 9 * s,
+                  fontWeight: 800,
+                  color: trustTierAccent,
+                  background: `${trustTierAccent}14`,
+                  border: `1px solid ${trustTierAccent}33`,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}>
+                  <span>✓</span>
+                  <span>{trustTierLabel}</span>
+                </span>
+                {proofSourceLabel && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4 * s,
+                    padding: `${4 * s}px ${8 * s}px`,
+                    borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                    fontSize: 9 * s,
+                    fontWeight: 700,
+                    color: tc.textDim,
+                    background: tc.panelBg,
+                    border: `1px solid ${tc.panelBorder}`,
+                  }}>
+                    <span>↗</span>
+                    <span>{proofSourceLabel}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -618,13 +726,26 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
 
           {/* Section label */}
           <div style={{
-            fontSize: 10 * s, fontWeight: 700, color: tc.textMuted,
-            textTransform: 'uppercase', letterSpacing: '0.15em',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8 * s,
           }}>
-            {isZh ? '本月 AI 消耗' : 'MONTHLY AI USAGE'}
-            <span style={{ float: 'right', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'none' }}>
+            <div style={{
+              fontSize: 10 * s, fontWeight: 800, color: tc.textMuted,
+              textTransform: 'uppercase', letterSpacing: '0.18em',
+            }}>
+              {isZh ? '本月 AI 战绩主视觉' : 'MONTHLY AI SIGNATURE'}
+            </div>
+            <div style={{
+              fontSize: 10 * s,
+              fontWeight: 700,
+              color: tc.textDim,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}>
               {dateStr}
-            </span>
+            </div>
           </div>
 
           {/* Giant token number */}
@@ -633,23 +754,78 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
             border: `1px solid ${tc.panelBorder}`,
             borderRadius: data.theme === 'mono-brutal' ? 0 : 14 * s,
             padding: `${18 * s}px ${22 * s}px ${14 * s}px`,
-            transition: 'all 0.4s ease',
+            transition: 'background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
+            boxShadow: `0 12px 32px ${title.glowColor}`,
           }}>
-            <div style={{
-              fontSize: 44 * s, fontWeight: 900, lineHeight: 1,
-              letterSpacing: '-0.04em',
-              fontVariantNumeric: 'tabular-nums',
-              color: tc.text,
-              transition: 'all 0.4s ease',
-              textShadow: data.theme === 'brand-dark'
-                ? `0 0 30px oklch(75% 0.16 55 / 0.5), 0 0 60px oklch(65% 0.18 280 / 0.2)`
-                : 'none',
-            }}>
-              {tokenDisplay}
-              <span style={{
-                fontSize: 14 * s, fontWeight: 600, color: tc.textDim,
-                marginLeft: 6 * s, letterSpacing: '0.02em',
-              }}>tokens</span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 * s }}>
+              <div>
+                <div style={{
+                  fontSize: 44 * s, fontWeight: 900, lineHeight: 1,
+                  letterSpacing: '-0.04em',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'transparent',
+                  backgroundImage: `linear-gradient(135deg, ${title.color}, ${rankTier.accent})`,
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  transition: 'color 0.4s ease, text-shadow 0.4s ease, filter 0.4s ease',
+                  textShadow: data.theme === 'brand-dark'
+                    ? `0 0 30px oklch(75% 0.16 55 / 0.5), 0 0 60px oklch(65% 0.18 280 / 0.2)`
+                    : 'none',
+                }}>
+                  {tokenDisplay}
+                  <span style={{
+                    fontSize: 14 * s, fontWeight: 600, color: tc.textDim,
+                    marginLeft: 6 * s, letterSpacing: '0.02em',
+                    backgroundImage: 'none',
+                    WebkitTextFillColor: tc.textDim,
+                  }}>tokens</span>
+                </div>
+                <div style={{ marginTop: 8 * s, display: 'flex', alignItems: 'center', gap: 8 * s, flexWrap: 'wrap' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4 * s,
+                    padding: `${5 * s}px ${10 * s}px`,
+                    borderRadius: 999,
+                    background: `${rankTier.accent}18`,
+                    color: rankTier.accent,
+                    border: `1px solid ${rankTier.accent}33`,
+                    fontSize: 10 * s,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}>
+                    <span>{rankTier.badge}</span>
+                    <span>{isZh ? rankTier.clubLabel : rankTier.clubLabelEn}</span>
+                  </span>
+                  <span style={{
+                    fontSize: 10 * s,
+                    color: tc.textDim,
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                  }}>
+                    {rankingSignalLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{
+                minWidth: 78 * s,
+                padding: `${8 * s}px ${10 * s}px`,
+                borderRadius: data.theme === 'mono-brutal' ? 0 : 12 * s,
+                border: `1px solid ${rankTier.accent}33`,
+                background: `${rankTier.accent}14`,
+                textAlign: 'right',
+              }}>
+                <div style={{ fontSize: 10 * s, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+                  {isZh ? '本月档位' : 'Tier'}
+                </div>
+                <div style={{ marginTop: 4 * s, fontSize: 16 * s, fontWeight: 900, color: rankTier.accent }}>
+                  {rankTier.badge} {isZh ? rankTier.label : rankTier.labelEn}
+                </div>
+                <div style={{ marginTop: 4 * s, fontSize: 9 * s, color: tc.textDim }}>
+                  {growth > 0 ? `${growth > 999 ? '999+' : growth}% ${isZh ? '较上月' : 'vs last month'}` : rankingSignalDescription}
+                </div>
+              </div>
             </div>
 
             {/* Metaphor */}
@@ -669,37 +845,125 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 {metaphor}
               </span>
             </div>
+            <div style={{
+              marginTop: 14 * s,
+              paddingTop: 12 * s,
+              borderTop: `1px solid ${tc.divider}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10 * s,
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 9 * s, color: tc.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                  {isZh ? '排面摘要' : 'Signature summary'}
+                </div>
+                <div style={{ marginTop: 4 * s, fontSize: 11 * s, fontWeight: 700, color: tc.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {heroSupportLine}
+                </div>
+              </div>
+              <div style={{
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4 * s,
+                padding: `${5 * s}px ${9 * s}px`,
+                borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                background: tc.barTrack,
+                border: `1px solid ${tc.panelBorder}`,
+                fontSize: 10 * s,
+                fontWeight: 800,
+                color: tc.textSecondary,
+              }}>
+                <span>⚡</span>
+                <span>{tokenShort}</span>
+              </div>
+            </div>
           </div>
 
           {/* 3 Stats */}
           <div style={{ display: 'flex', gap: 8 * s }}>
             {[
               { label: isZh ? '预估花费' : 'Est. Cost', value: estimatedCost > 0 ? `$${estimatedCost.toLocaleString()}` : '$0', icon: '💰' },
-              { label: isZh ? '活跃天数' : 'Active', value: '30d', icon: '📅' },
+              { label: isZh ? '统计周期' : 'Period', value: isZh ? '本月' : 'This Month', icon: '📅' },
               { label: isZh ? '主力渠道' : 'Channel', value: channelInfo.label.split(' ')[0], icon: CHANNEL_ICONS[data.channel] || '⚪' },
             ].map((stat, i) => (
               <div key={i} style={{
                 flex: 1, textAlign: 'center',
                 background: tc.panelBg,
                 border: `1px solid ${tc.panelBorder}`,
-                borderRadius: data.theme === 'mono-brutal' ? 0 : 10 * s,
-                padding: `${10 * s}px ${6 * s}px`,
-                transition: 'all 0.4s ease',
+                borderRadius: data.theme === 'mono-brutal' ? 0 : 12 * s,
+                padding: `${12 * s}px ${8 * s}px`,
+                transition: 'background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04)`,
               }}>
-                <div style={{ fontSize: 14 * s, marginBottom: 3 * s }}>{stat.icon}</div>
-                <div style={{ fontSize: 14 * s, fontWeight: 800, color: tc.text, lineHeight: 1.2 }}>
+                <div style={{
+                  width: 24 * s,
+                  height: 24 * s,
+                  margin: `0 auto ${5 * s}px`,
+                  borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: `${tc.accent}16`,
+                  fontSize: 12 * s,
+                }}>{stat.icon}</div>
+                <div style={{ fontSize: 14 * s, fontWeight: 900, color: tc.text, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
                   {stat.value}
                 </div>
-                <div style={{ fontSize: 9 * s, fontWeight: 500, color: tc.textMuted, marginTop: 2 * s, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <div style={{ fontSize: 9 * s, fontWeight: 600, color: tc.textMuted, marginTop: 3 * s, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                   {stat.label}
                 </div>
               </div>
             ))}
           </div>
 
+          {/* Achievements */}
+          {achievements.length > 0 && (
+            <div style={{ display: 'flex', gap: 6 * s, flexWrap: 'wrap' }}>
+              {achievements.map((achievement) => (
+                <span
+                  key={achievement.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5 * s,
+                    padding: `${5 * s}px ${9 * s}px`,
+                    borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                    fontSize: 10 * s,
+                    fontWeight: 700,
+                    color: tc.textSecondary,
+                    background: tc.panelBg,
+                    border: `1px solid ${tc.panelBorder}`,
+                  }}
+                >
+                  <span>{achievement.icon}</span>
+                  <span>{isZh ? achievement.label : achievement.labelEn}</span>
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Model breakdown */}
           {data.modelBreakdown.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 * s }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8 * s,
+              background: tc.panelBg,
+              border: `1px solid ${tc.panelBorder}`,
+              borderRadius: data.theme === 'mono-brutal' ? 0 : 14 * s,
+              padding: `${12 * s}px ${14 * s}px`,
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04)`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 * s }}>
+                <div style={{ fontSize: 10 * s, fontWeight: 800, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.16em' }}>
+                  {isZh ? '模型火力分布' : 'Model power mix'}
+                </div>
+                <div style={{ fontSize: 10 * s, color: tc.textDim, fontWeight: 700 }}>
+                  {isZh ? `${data.modelBreakdown.length} 个模型` : `${data.modelBreakdown.length} models`}
+                </div>
+              </div>
               {data.modelBreakdown.map((model, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 * s }}>
                   <span style={{
@@ -769,7 +1033,47 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
 
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             {/* Left: branding */}
-            <div>
+            <div style={{ maxWidth: qrDataUrl ? '72%' : '100%' }}>
+              {featuredProjects.length > 0 && (
+                <div style={{ display: 'flex', gap: 6 * s, flexWrap: 'wrap', marginBottom: 12 * s }}>
+                  {featuredProjects.map((project) => (
+                    <span
+                      key={project.id}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5 * s,
+                        padding: `${5 * s}px ${9 * s}px`,
+                        borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                        fontSize: 10 * s,
+                        fontWeight: 700,
+                        color: tc.textSecondary,
+                        background: `${tc.panelBg}`,
+                        border: `1px solid ${tc.panelBorder}`,
+                        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04)`,
+                        maxWidth: 150 * s,
+                      }}
+                    >
+                      <span>{project.icon || '✨'}</span>
+                      {project.displayType !== 'icon' && (
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ fontSize: 9 * s, color: tc.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 4 * s }}>
+                {isZh ? '可传播个人名片' : 'Share-ready identity card'}
+              </div>
+              <div style={{
+                fontSize: 9 * s,
+                color: tc.textDim,
+                marginBottom: 6 * s,
+                letterSpacing: '0.03em',
+                lineHeight: 1.4,
+              }}>
+                {trustSummary}
+              </div>
               <div style={{
                 fontSize: 16 * s, fontWeight: 900, letterSpacing: '-0.03em',
                 color: tc.text,
@@ -824,10 +1128,11 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   />
                 </div>
                 <div style={{
-                  fontSize: 8 * s, color: tc.textMuted, marginTop: 4 * s,
-                  textAlign: 'center', letterSpacing: '0.06em', textTransform: 'uppercase',
+                  fontSize: 8 * s, color: tc.textMuted, marginTop: 5 * s,
+                  textAlign: 'center', letterSpacing: '0.08em', textTransform: 'uppercase',
+                  maxWidth: 92 * s,
                 }}>
-                  {isZh ? '扫码看我的 AI 战绩' : 'Scan to view my AI card'}
+                  {isZh ? '扫码进入我的分享页' : 'Scan to view my share page'}
                 </div>
               </div>
             )}

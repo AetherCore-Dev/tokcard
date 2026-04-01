@@ -2,5 +2,11 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tokcard",
   "compatibility_date": "2026-03-29",
-  "pages_build_output_dir": "./dist"
+  "pages_build_output_dir": "./dist",
+  "kv_namespaces": [
+    {
+      "binding": "TOKCARD_METRICS",
+      "id": "e26cecc638a64392b6e9a75d15d3f5db"
+    }
+  ]
 }

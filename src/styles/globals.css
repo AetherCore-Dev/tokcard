@@ -52,6 +52,33 @@ button:disabled {
   }
 }
 
+@keyframes success-burst {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, -160px, 0) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-success-burst {
+  animation: success-burst 1.8s ease-out forwards;
+}
+
 /* Focus styles - visible keyboard focus */
 :focus-visible {
   outline: 2px solid oklch(65% 0.18 280);
@@ -71,6 +98,16 @@ button:disabled {
 .token-number {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+.pulse-glow {
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.08) 25%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.08) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s linear infinite;
 }
 
 /* Reduced motion preference */

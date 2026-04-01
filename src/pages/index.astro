@@ -18,10 +18,16 @@ const heroCard = makeCard({
   username: 'vibe.engineer',
   slogan: '发出来不是总结，是压迫感',
   totalTokens: 2_300_000_000,
+  lastMonthTokens: 1_400_000_000,
   channel: 'claude',
   theme: 'brand-dark',
   platform: 'wechat',
   metaphorCategory: 'flex',
+  projects: [
+    { id: 'hero-github', name: 'GitHub', icon: '🐙', url: 'https://github.com', displayType: 'icon+text' },
+    { id: 'hero-site', name: 'Portfolio', icon: '🌐', url: 'https://tokcard.dev', displayType: 'icon+text' },
+    { id: 'hero-saas', name: 'TokCard', icon: '⚡', url: 'https://tokcard.dev', displayType: 'icon+text' },
+  ],
   modelBreakdown: [
     { name: 'Claude', percentage: 62, color: '#d97706' },
     { name: 'GPT', percentage: 24, color: '#10b981' },
@@ -36,10 +42,15 @@ const showcaseCards: CardData[] = [
     avatarValue: '⚡',
     slogan: '别人晒腹肌，我晒 token',
     totalTokens: 780_000_000,
+    lastMonthTokens: 420_000_000,
     channel: 'gpt',
     theme: 'gradient-dream',
     platform: 'xiaohongshu',
     metaphorCategory: 'meme',
+    projects: [
+      { id: 'diva-app', name: 'AI App', icon: '📱', url: 'https://tokcard.dev', displayType: 'icon+text' },
+      { id: 'diva-ph', name: 'PH', icon: '🚀', url: 'https://tokcard.dev', displayType: 'icon+text' },
+    ],
     modelBreakdown: [
       { name: 'GPT', percentage: 54, color: '#10b981' },
       { name: 'Claude', percentage: 28, color: '#d97706' },
@@ -51,10 +62,15 @@ const showcaseCards: CardData[] = [
     avatarValue: '🧠',
     slogan: '我会的不是技术，是使唤 AI',
     totalTokens: 96_000_000,
+    lastMonthTokens: 60_000_000,
     channel: 'deepseek',
     theme: 'brand-light',
     platform: 'twitter',
     metaphorCategory: 'worker',
+    projects: [
+      { id: 'pm-site', name: 'Website', icon: '🪪', url: 'https://tokcard.dev', displayType: 'icon+text' },
+      { id: 'pm-case', name: 'Case Study', icon: '📊', url: 'https://tokcard.dev', displayType: 'icon+text' },
+    ],
     modelBreakdown: [
       { name: 'DeepSeek', percentage: 48, color: '#1652f0' },
       { name: 'Claude', percentage: 32, color: '#d97706' },
@@ -66,104 +82,203 @@ const showcaseCards: CardData[] = [
 const showcaseMeta = [
   { platform: '朋友圈', note: '高压排面款' },
   { platform: '小红书', note: '有图有梗款' },
-  { platform: 'X / LinkedIn', note: '干净有态度' },
+  { platform: 'X / LinkedIn', note: '专业名片款' },
+];
+
+const heroSignals = [
+  '档位徽章自动生成',
+  '项目名片直接上卡',
+  '导出即带分享文案',
+  '朋友圈 / 小红书 / X 比例就绪',
+];
+
+const homepageBenefits = [
+  {
+    eyebrow: '不是报表，是排面',
+    title: '别人一眼就能看懂你到底有多重度。',
+    body: '不是后台截图，也不是枯燥图表，而是一张有身份、有态度、有社交证明的 AI 战绩卡。',
+  },
+  {
+    eyebrow: '不是链接，是名片',
+    title: '把项目、GitHub、主页一起带出去。',
+    body: 'TokCard 不只晒 token，也把你的项目徽章、个人入口和传播链路一起封装进一张卡。',
+  },
+  {
+    eyebrow: '不是结尾，是传播起点',
+    title: '发出去之后，别人还会顺着你的卡继续做。',
+    body: '分享页保留原始链接，也保留“我也做一张”的冲动，让内容继续裂变。',
+  },
+];
+
+const workflow = [
+  {
+    step: '01',
+    title: '填入你的 token 和身份信息',
+    body: '昵称、token、模型占比、项目入口，都能变成同一张社交内容卡。',
+  },
+  {
+    step: '02',
+    title: '自动生成战绩表达',
+    body: '系统会帮你补齐档位、成就、比喻和适合发帖的文案结构。',
+  },
+  {
+    step: '03',
+    title: '导出并开始传播',
+    body: '拿走 PNG、文案和分享链接，把“我很能打”直接发出去。',
+  },
+];
+
+const trustMetrics = [
+  { value: '10+', label: '视觉主题' },
+  { value: '6', label: '目标平台比例' },
+  { value: '3', label: '项目徽章位' },
+  { value: 'AI', label: '文案与比喻增强' },
 ];
 ---
 
-<Layout title="TokCard - AI 战绩晒图生成器" description="生成适合朋友圈、小红书、X 的 AI token 战绩卡，做一张让人想转发的晒图。">
+<Layout title="TokCard - AI 战绩分享名片生成器" description="把你的 AI token 用量、项目名片和社交排面做成一张值得转发的战绩卡。适合朋友圈、小红书、X 和 LinkedIn。">
   <main class="min-h-screen flex flex-col bg-[#fbfbfd] text-[#1d1d1f] overflow-x-hidden">
+    <div class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+      <div class="absolute left-[-8rem] top-[-6rem] h-[24rem] w-[24rem] rounded-full bg-[#0071e3]/10 blur-3xl"></div>
+      <div class="absolute right-[-6rem] top-[8rem] h-[22rem] w-[22rem] rounded-full bg-[#7c3aed]/10 blur-3xl"></div>
+      <div class="absolute left-[20%] bottom-[10%] h-[18rem] w-[18rem] rounded-full bg-[#f59e0b]/10 blur-3xl"></div>
+    </div>
+
     <nav class="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto w-full relative z-10">
-      <span class="text-xl font-semibold tracking-tight">TokCard</span>
-      <a
-        href="/create"
-        class="text-sm font-medium px-4 py-2 rounded-full transition-all duration-300"
-        style="color: #0071e3; background: rgba(0, 113, 227, 0.08);"
-        onmouseover="this.style.background='rgba(0, 113, 227, 0.12)'"
-        onmouseout="this.style.background='rgba(0, 113, 227, 0.08)'"
-      >
-        立即生成
-      </a>
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-semibold tracking-tight">TokCard</span>
+        <span class="hidden sm:inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-3 py-1 text-[11px] font-semibold text-[#64748b] shadow-sm">
+          AI 社交战绩卡
+        </span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="#showcase" class="hidden sm:inline text-sm font-medium text-[#64748b] hover:text-[#1d1d1f]">看案例</a>
+        <a
+          href="/create"
+          class="text-sm font-semibold px-4 py-2 rounded-full transition-all duration-300 bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20 hover:scale-[1.02]"
+        >
+          立即生成
+        </a>
+      </div>
     </nav>
 
-    <section class="px-6 pt-8 pb-16 md:pt-12 md:pb-20 max-w-6xl mx-auto w-full">
-      <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center">
+    <section class="px-6 pt-8 pb-18 md:pt-10 md:pb-24 max-w-6xl mx-auto w-full">
+      <div class="grid gap-14 lg:grid-cols-[minmax(0,1.05fr)_430px] lg:items-center">
         <div>
-          <div class="inline-flex items-center gap-2 rounded-full border border-[#d2d2d7] bg-white px-4 py-2 text-xs font-medium text-[#6b7280] shadow-sm">
-            <span>适合朋友圈 / 小红书 / X</span>
-            <span class="text-[#d1d5db]">·</span>
-            <span>AI 战绩晒图路线</span>
+          <div class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white/90 px-4 py-2 text-xs font-medium text-[#64748b] shadow-sm backdrop-blur">
+            <span>适合朋友圈 / 小红书 / X / LinkedIn</span>
+            <span class="text-[#cbd5e1]">·</span>
+            <span>把 token 用量做成社交爆款</span>
           </div>
 
-          <h1 class="mt-6 text-5xl md:text-7xl font-semibold tracking-tight leading-[1.05]">
-            本月你用 AI 烧了多少？<br />
-            <span class="text-[#0071e3]">做成一张能晒的战绩卡。</span>
+          <h1 class="mt-6 text-5xl md:text-7xl font-semibold tracking-tight leading-[1.02]">
+            把你的 AI 用量，<br />
+            <span class="bg-[linear-gradient(135deg,#0071e3_0%,#7c3aed_60%,#f59e0b_100%)] bg-clip-text text-transparent">
+              做成一张会被转发的名片。
+            </span>
           </h1>
 
-          <p class="mt-6 text-lg md:text-xl leading-relaxed max-w-3xl text-[#6b7280]">
-            一键生成你的 AI token 晒图，配上爆款签名、夸张比喻、二维码和平台比例，
-            直接发朋友圈、小红书、X，让别人看完也想做一张。
+          <p class="mt-6 max-w-3xl text-lg md:text-[1.35rem] leading-relaxed text-[#6b7280]">
+            TokCard 把 token 体量、模型偏好、项目入口和社交证明压缩进一张图。
+            你不是在发截图，而是在发一张证明“你真的很能打”的内容卡。
           </p>
 
-          <div class="mt-10 flex flex-col sm:flex-row items-center gap-4">
+          <div class="mt-8 flex flex-col sm:flex-row sm:items-center gap-4">
             <a
               href="/create"
-              class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20"
+              class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] bg-[#0071e3] text-white shadow-[0_18px_40px_rgba(0,113,227,0.28)]"
             >
-              立即生成我的 AI 战绩
+              立即做我的 AI 战绩卡
             </a>
-            <div class="text-sm text-[#6b7280]">无需注册 · 本地编辑 · 直接导出 PNG</div>
+            <a
+              href="#showcase"
+              class="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full font-medium text-lg transition-all duration-300 bg-white border border-[#dbe4ff] text-[#1d1d1f] shadow-sm hover:border-[#0071e3]"
+            >
+              先看爆款案例
+            </a>
           </div>
 
-          <div class="mt-6 flex flex-wrap items-center gap-3 text-sm text-[#6b7280]">
-            <div class="rounded-full bg-white border border-[#dbe4ff] px-4 py-2 shadow-sm">200+ vibe coders 已晒图</div>
-            <div class="rounded-full bg-white border border-[#dbe4ff] px-4 py-2 shadow-sm">最近 7 天最常发：朋友圈 / 小红书</div>
+          <div class="mt-5 text-sm text-[#6b7280]">无需注册 · 本地编辑 · 导出图片 + 分享文案 + 分享链接</div>
+
+          <div class="mt-8 flex flex-wrap gap-3">
+            {heroSignals.map((signal) => (
+              <div class="rounded-full border border-[#dbe4ff] bg-white/92 px-4 py-2 text-sm font-medium text-[#334155] shadow-sm">
+                {signal}
+              </div>
+            ))}
+          </div>
+
+          <div class="mt-10 grid gap-4 sm:grid-cols-3">
+            <div class="rounded-[24px] border border-[#dbe4ff] bg-white/92 p-5 shadow-sm backdrop-blur">
+              <div class="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">最适合晒什么</div>
+              <div class="mt-2 text-xl font-semibold">你的 AI 体量</div>
+              <p class="mt-2 text-sm leading-6 text-[#6b7280]">让“月 token 用量”从后台数据变成社交场景里的身份信号。</p>
+            </div>
+            <div class="rounded-[24px] border border-[#dbe4ff] bg-white/92 p-5 shadow-sm backdrop-blur">
+              <div class="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">最容易形成记忆点</div>
+              <div class="mt-2 text-xl font-semibold">你的表达方式</div>
+              <p class="mt-2 text-sm leading-6 text-[#6b7280]">档位、成就、比喻、爆款文案一起出现，别人更容易记住你。</p>
+            </div>
+            <div class="rounded-[24px] border border-[#dbe4ff] bg-white/92 p-5 shadow-sm backdrop-blur">
+              <div class="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">最值钱的一步</div>
+              <div class="mt-2 text-xl font-semibold">把项目一起带走</div>
+              <p class="mt-2 text-sm leading-6 text-[#6b7280]">项目徽章、主页和分享链接合并成一条完整传播链路。</p>
+            </div>
           </div>
         </div>
 
         <div class="flex justify-center lg:justify-end">
-          <div class="relative">
-            <div class="absolute inset-0 bg-[#0071e3]/10 blur-3xl rounded-full scale-90"></div>
-            <div class="relative rotate-[-6deg] drop-shadow-[0_30px_60px_rgba(15,23,42,0.18)]">
-              <CardRenderer data={heroCard} scale={0.66} renderId="landing-hero-card" />
+          <div class="relative w-full max-w-[430px]">
+            <div class="absolute inset-0 rounded-[42px] bg-[radial-gradient(circle_at_top,rgba(0,113,227,0.18),transparent_55%)] blur-2xl"></div>
+            <div class="absolute -left-6 top-8 hidden md:block rounded-[24px] border border-white/60 bg-white/92 px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+              <div class="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">本月档位</div>
+              <div class="mt-1 text-lg font-semibold text-[#111827]">👑 十亿俱乐部</div>
+              <div class="mt-1 text-xs text-[#64748b]">Top 5% · Claude Loyalist</div>
+            </div>
+            <div class="absolute -right-4 bottom-10 hidden md:block rounded-[24px] border border-white/60 bg-[#0f172a] px-4 py-3 text-white shadow-[0_18px_40px_rgba(15,23,42,0.20)]">
+              <div class="text-[11px] uppercase tracking-[0.18em] text-white/60">传播结果</div>
+              <div class="mt-1 text-lg font-semibold">图片 + 文案 + 链接</div>
+              <div class="mt-1 text-xs text-white/70">发帖之后还能继续带人回来</div>
+            </div>
+            <div class="relative rotate-[-5deg] drop-shadow-[0_36px_80px_rgba(15,23,42,0.22)]">
+              <CardRenderer data={heroCard} scale={0.72} renderId="landing-hero-card" />
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="px-6 py-16 max-w-6xl mx-auto w-full border-t border-[#d2d2d7]/40">
-      <div class="grid gap-5 md:grid-cols-3">
-        <div class="rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
-          <div class="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">不是报表，是内容</div>
-          <div class="mt-3 text-2xl font-semibold">别人一眼看懂你有多重度。</div>
-          <p class="mt-3 text-sm leading-6 text-[#6b7280]">
-            不是后台截图，也不是枯燥统计图，而是一张带情绪、带态度、能被转发的战绩卡。
-          </p>
+    <section class="px-6 py-12 max-w-6xl mx-auto w-full">
+      <div class="rounded-[36px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] md:p-10">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div class="text-sm font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">为什么它更容易传播</div>
+            <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight">你晒出去的，不该像工具截图。</h2>
+          </div>
+          <div class="max-w-xl text-sm md:text-base leading-7 text-[#64748b]">
+            TokCard 的目标不是“帮你记录”，而是“帮你表达”。把冷数据变成带身份、带情绪、带名片属性的社交内容，转发率才会起来。
+          </div>
         </div>
-        <div class="rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
-          <div class="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">不是描述，是金句</div>
-          <div class="mt-3 text-2xl font-semibold">签名、比喻、底部水印都能出梗。</div>
-          <p class="mt-3 text-sm leading-6 text-[#6b7280]">
-            发出去不是“我用了很多 token”，而是“别人看完也想立刻做一张”的记忆点。
-          </p>
-        </div>
-        <div class="rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
-          <div class="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">不是适配，是开箱即发</div>
-          <div class="mt-3 text-2xl font-semibold">平台比例 + 导出文案一次给齐。</div>
-          <p class="mt-3 text-sm leading-6 text-[#6b7280]">
-            选好朋友圈、小红书或 X，导出后直接带走一段可复制的发帖文案。
-          </p>
+
+        <div class="mt-8 grid gap-5 md:grid-cols-3">
+          {homepageBenefits.map((item) => (
+            <div class="rounded-[28px] border border-[#e5efff] bg-white p-6 shadow-sm">
+              <div class="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">{item.eyebrow}</div>
+              <div class="mt-3 text-2xl font-semibold leading-tight text-[#111827]">{item.title}</div>
+              <p class="mt-3 text-sm leading-6 text-[#6b7280]">{item.body}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
 
-    <section class="px-6 py-16 max-w-6xl mx-auto w-full border-t border-[#d2d2d7]/40">
+    <section id="showcase" class="px-6 py-16 max-w-6xl mx-auto w-full border-t border-[#d2d2d7]/40">
       <div class="flex items-end justify-between gap-6 flex-wrap">
         <div>
           <div class="text-sm font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">Real showcase</div>
-          <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight">你发出去的，不该像工具截图。</h2>
+          <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight">同一套产品，不同人设都能打。</h2>
         </div>
-        <a href="/create" class="text-sm font-medium text-[#0071e3]">去做我的版本</a>
+        <a href="/create" class="text-sm font-semibold text-[#0071e3]">去做我的版本</a>
       </div>
 
       <div class="mt-10 grid gap-8 lg:grid-cols-3">
@@ -189,42 +304,73 @@ const showcaseMeta = [
     </section>
 
     <section class="px-6 py-16 max-w-6xl mx-auto w-full border-t border-[#d2d2d7]/40">
-      <div class="grid gap-5 md:grid-cols-4">
-        <div class="rounded-[24px] bg-white border border-[#dbe4ff] p-5 shadow-sm">
-          <div class="text-3xl font-semibold tracking-tight">200+</div>
-          <div class="mt-2 text-sm text-[#6b7280]">正在晒 AI 战绩的人</div>
+      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
+        <div>
+          <div class="text-sm font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">How it works</div>
+          <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight">从 token 数字，到一条完整传播链路。</h2>
+          <div class="mt-8 grid gap-5 md:grid-cols-3">
+            {workflow.map((item) => (
+              <div class="rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
+                <div class="text-sm font-semibold text-[#0071e3]">{item.step}</div>
+                <div class="mt-3 text-xl font-semibold text-[#111827] leading-tight">{item.title}</div>
+                <p class="mt-3 text-sm leading-6 text-[#6b7280]">{item.body}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div class="rounded-[24px] bg-white border border-[#dbe4ff] p-5 shadow-sm">
-          <div class="text-3xl font-semibold tracking-tight">10</div>
-          <div class="mt-2 text-sm text-[#6b7280]">可切换主题风格</div>
-        </div>
-        <div class="rounded-[24px] bg-white border border-[#dbe4ff] p-5 shadow-sm">
-          <div class="text-3xl font-semibold tracking-tight">6</div>
-          <div class="mt-2 text-sm text-[#6b7280]">社交平台比例</div>
-        </div>
-        <div class="rounded-[24px] bg-white border border-[#dbe4ff] p-5 shadow-sm">
-          <div class="text-3xl font-semibold tracking-tight">Copy</div>
-          <div class="mt-2 text-sm text-[#6b7280]">导出后附赠分享文案</div>
+
+        <div class="rounded-[32px] border border-[#dbe4ff] bg-[#0f172a] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+          <div class="text-sm font-semibold uppercase tracking-[0.18em] text-white/50">传播价值</div>
+          <div class="mt-3 text-3xl font-semibold tracking-tight">不是发一张图，
+            <br />是给自己做一个能扩散的入口。</div>
+          <p class="mt-4 text-sm leading-7 text-white/72">
+            卡片负责第一眼的排面，分享页负责继续承接，项目链接负责把流量带走。TokCard 让这三件事连在一起。
+          </p>
+          <a href="/create" class="mt-7 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#0f172a] shadow-sm hover:bg-[#f8fafc]">
+            去生成我的首页级分享卡
+          </a>
         </div>
       </div>
     </section>
 
+    <section class="px-6 py-16 max-w-6xl mx-auto w-full border-t border-[#d2d2d7]/40">
+      <div class="grid gap-5 md:grid-cols-4">
+        {trustMetrics.map((metric) => (
+          <div class="rounded-[24px] bg-white border border-[#dbe4ff] p-5 shadow-sm">
+            <div class="text-3xl font-semibold tracking-tight">{metric.value}</div>
+            <div class="mt-2 text-sm text-[#6b7280]">{metric.label}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+
     <section class="px-6 py-20 max-w-5xl mx-auto w-full border-t border-[#d2d2d7]/40 text-center">
-      <h2 class="text-3xl md:text-4xl font-semibold tracking-tight">把你的 AI 用量，做成别人会收藏的那种图。</h2>
+      <div class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-4 py-2 text-xs font-medium text-[#64748b] shadow-sm">
+        <span>让你的 AI 工作流更值得被看见</span>
+      </div>
+      <h2 class="mt-6 text-4xl md:text-5xl font-semibold tracking-tight leading-tight">把你的 AI 用量，做成别人会点开、会转发、会记住的那张图。</h2>
       <p class="mt-5 text-lg text-[#6b7280] max-w-2xl mx-auto leading-relaxed">
-        不是为了记账，是为了让你的 AI 工作流看起来更猛、更有趣、更值得发出来。
+        不是为了记账，而是为了把你的能力、项目和工作流浓缩成一张内容资产。
       </p>
-      <a
-        href="/create"
-        class="mt-8 inline-flex items-center justify-center px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20"
-      >
-        去做我的晒图
-      </a>
+      <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+        <a
+          href="/create"
+          class="inline-flex items-center justify-center px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] bg-[#0071e3] text-white shadow-[0_18px_40px_rgba(0,113,227,0.28)]"
+        >
+          去做我的晒图
+        </a>
+        <a
+          href="#showcase"
+          class="inline-flex items-center justify-center px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 bg-white border border-[#dbe4ff] text-[#1d1d1f] shadow-sm hover:border-[#0071e3]"
+        >
+          先看案例
+        </a>
+      </div>
     </section>
 
     <footer class="px-6 py-8 text-[13px] max-w-6xl mx-auto w-full text-[#86868b] border-t border-[#d2d2d7]/30">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <p>TokCard.dev — AI 战绩晒图生成器</p>
+        <p>TokCard.dev — AI 战绩分享名片生成器</p>
         <p>Open source. No tracking. Your data stays local.</p>
       </div>
     </footer>

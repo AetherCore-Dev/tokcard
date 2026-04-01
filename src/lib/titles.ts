@@ -9,6 +9,19 @@ export interface TitleInfo {
   tier: number; // 1-7
 }
 
+export interface RankTierInfo {
+  id: string;
+  tier: number;
+  badge: string;
+  label: string;
+  labelEn: string;
+  clubLabel: string;
+  clubLabelEn: string;
+  accent: string;
+  topPercentLabel: string;
+  topPercentLabelEn: string;
+}
+
 const TITLES: TitleInfo[] = [
   {
     title: 'AI 点火者',
@@ -68,6 +81,93 @@ const TITLES: TitleInfo[] = [
   },
 ];
 
+const RANK_TIERS: RankTierInfo[] = [
+  {
+    id: 'starter',
+    tier: 1,
+    badge: '🪄',
+    label: '新手热身',
+    labelEn: 'Warm-up',
+    clubLabel: '起步用户',
+    clubLabelEn: 'Getting Started',
+    accent: '#94a3b8',
+    topPercentLabel: 'Top 60%',
+    topPercentLabelEn: 'Top 60%',
+  },
+  {
+    id: 'apprentice',
+    tier: 2,
+    badge: '⚡',
+    label: '学徒模式',
+    labelEn: 'Apprentice',
+    clubLabel: '百万练习生',
+    clubLabelEn: '1M Apprentice',
+    accent: '#eab308',
+    topPercentLabel: 'Top 40%',
+    topPercentLabelEn: 'Top 40%',
+  },
+  {
+    id: 'expert',
+    tier: 3,
+    badge: '🏅',
+    label: '高手局',
+    labelEn: 'Expert',
+    clubLabel: '千万俱乐部',
+    clubLabelEn: '10M Club',
+    accent: '#22c55e',
+    topPercentLabel: 'Top 20%',
+    topPercentLabelEn: 'Top 20%',
+  },
+  {
+    id: 'legend',
+    tier: 4,
+    badge: '🏆',
+    label: '战神档',
+    labelEn: 'Legend',
+    clubLabel: '亿级战神',
+    clubLabelEn: '100M Legend',
+    accent: '#3b82f6',
+    topPercentLabel: 'Top 10%',
+    topPercentLabelEn: 'Top 10%',
+  },
+  {
+    id: 'mythic',
+    tier: 5,
+    badge: '👑',
+    label: '传奇位',
+    labelEn: 'Mythic',
+    clubLabel: '十亿俱乐部',
+    clubLabelEn: '1B+ Club',
+    accent: '#8b5cf6',
+    topPercentLabel: 'Top 5%',
+    topPercentLabelEn: 'Top 5%',
+  },
+  {
+    id: 'ultra',
+    tier: 6,
+    badge: '🚀',
+    label: '超频位',
+    labelEn: 'Ultra',
+    clubLabel: '百亿超频组',
+    clubLabelEn: '10B Hyper Club',
+    accent: '#ec4899',
+    topPercentLabel: 'Top 1%',
+    topPercentLabelEn: 'Top 1%',
+  },
+  {
+    id: 'singularity',
+    tier: 7,
+    badge: '🌌',
+    label: '奇点位',
+    labelEn: 'Singularity',
+    clubLabel: '百亿以上神话',
+    clubLabelEn: '100B Myth',
+    accent: '#ef4444',
+    topPercentLabel: 'Top 0.1%',
+    topPercentLabelEn: 'Top 0.1%',
+  },
+];
+
 export function calculateTitle(tokens: number): TitleInfo {
   if (tokens >= 100_000_000_000) return TITLES[6]; // 100B+
   if (tokens >= 10_000_000_000) return TITLES[5];   // 10B-100B
@@ -76,6 +176,16 @@ export function calculateTitle(tokens: number): TitleInfo {
   if (tokens >= 10_000_000) return TITLES[2];        // 10M-100M
   if (tokens >= 1_000_000) return TITLES[1];         // 1M-10M
   return TITLES[0];                                   // < 1M
+}
+
+export function getRankTier(tokens: number): RankTierInfo {
+  if (tokens >= 100_000_000_000) return RANK_TIERS[6];
+  if (tokens >= 10_000_000_000) return RANK_TIERS[5];
+  if (tokens >= 1_000_000_000) return RANK_TIERS[4];
+  if (tokens >= 100_000_000) return RANK_TIERS[3];
+  if (tokens >= 10_000_000) return RANK_TIERS[2];
+  if (tokens >= 1_000_000) return RANK_TIERS[1];
+  return RANK_TIERS[0];
 }
 
 // Style tags based on usage patterns
