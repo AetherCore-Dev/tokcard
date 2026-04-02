@@ -1,101 +1,104 @@
 import type { Handler } from '@cloudflare/workers-types';
-
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-
-interface DeepSeekResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-}
+import { buildCorsHeaders, handleOptions, jsonResponse, validateOrigin } from '../lib/cors';
+import { checkRateLimit } from '../lib/rate-limit';
+import { callDeepSeek, formatTokenValue, sanitizeForPrompt } from '../lib/deepseek';
 
 export const onRequest: Handler = async (context) => {
-  // CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+  const requestOrigin = context.request.headers.get('Origin');
 
-  // Handle OPTIONS request
+  const originError = validateOrigin(requestOrigin);
+  if (originError) return originError;
+
   if (context.request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
+    return handleOptions(requestOrigin);
   }
 
-  // Only accept POST
   if (context.request.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    );
+    return jsonResponse({ error: 'Method not allowed' }, 405, requestOrigin);
+  }
+
+  // Rate limiting
+  const namespace = context.env?.TOKCARD_METRICS as KVNamespace | undefined;
+  if (namespace) {
+    const ip = context.request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const { allowed } = await checkRateLimit(namespace, ip, 'rate:slogan');
+    if (!allowed) {
+      return jsonResponse({ error: 'Rate limit exceeded. Please try again later.' }, 429, requestOrigin);
+    }
   }
 
   try {
-    // Parse request body
-    const body = await context.request.json();
-    const { username, tokens, locale, style = 'hype', titleMode = 'personal' } = body;
+    const body = await context.request.json() as Record<string, unknown>;
+    const username = sanitizeForPrompt(String(body.username ?? ''), 32);
+    const tokens = Math.max(0, Number(body.tokens ?? 0));
+    const locale = body.locale === 'en' ? 'en' : 'zh';
+    const style = sanitizeForPrompt(String(body.style ?? 'hype'), 16);
+    const titleMode = sanitizeForPrompt(String(body.titleMode ?? 'personal'), 16);
 
-    if (!username || tokens === undefined || !locale) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
+    if (!username || tokens === 0) {
+      return jsonResponse({ error: 'Missing required fields' }, 400, requestOrigin);
     }
 
-    // Get API key from environment
     const apiKey = context.env?.DEEPSEEK_API_KEY;
     if (!apiKey) {
-      console.error('DEEPSEEK_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
+      return jsonResponse({ error: 'AI service not configured' }, 503, requestOrigin);
     }
 
-    // Format token description
-    const tokenDesc = tokens >= 1e9 ? `${(tokens / 1e9).toFixed(1)}B`
-      : tokens >= 1e6 ? `${(tokens / 1e6).toFixed(1)}M`
-      : tokens >= 1e3 ? `${(tokens / 1e3).toFixed(0)}K`
-      : `${tokens}`;
+    const tokenDesc = formatTokenValue(tokens);
 
-    const styleGuide = {
-      flex: locale === 'zh' ? '低调炫耀、凡尔赛、带排面' : 'subtle flex, prestige, status energy',
-      selfMock: locale === 'zh' ? '自嘲、反差、打工人幽默' : 'self-roast, contrast, worker humor',
-      hype: locale === 'zh' ? '爆款、带压迫感、适合晒朋友圈' : 'viral, punchy, built for sharing',
-      geek: locale === 'zh' ? '极客、科技感、开发者黑话' : 'geeky, technical, dev-native',
-    } as const;
+    const styleGuide: Record<string, Record<string, string>> = {
+      zh: {
+        flex: '低调炫耀、凡尔赛、带排面',
+        selfMock: '自嘲、反差、打工人幽默',
+        hype: '爆款、带压迫感、适合晒朋友圈',
+        geek: '极客、科技感、开发者黑话',
+      },
+      en: {
+        flex: 'subtle flex, prestige, status energy',
+        selfMock: 'self-roast, contrast, worker humor',
+        hype: 'viral, punchy, built for sharing',
+        geek: 'geeky, technical, dev-native',
+      },
+    };
 
-    const modeGuide = {
-      personal: locale === 'zh' ? '突出人的气场、身份感、个人能力' : 'focus on personal aura, identity, and capability',
-      project: locale === 'zh' ? '更像项目名片，强调作品和产出' : 'feel like a project business card, emphasizing output',
-      social: locale === 'zh' ? '更像社交平台标题，强调传播和评论欲' : 'feel like a social headline built for reposts and comments',
-    } as const;
+    const modeGuide: Record<string, Record<string, string>> = {
+      zh: {
+        personal: '突出人的气场、身份感、个人能力',
+        project: '更像项目名片，强调作品和产出',
+        social: '更像社交平台标题，强调传播和评论欲',
+      },
+      en: {
+        personal: 'focus on personal aura, identity, and capability',
+        project: 'feel like a project business card, emphasizing output',
+        social: 'feel like a social headline built for reposts and comments',
+      },
+    };
 
-    // Build prompt
+    const styleTip = styleGuide[locale][style] ?? styleGuide[locale].hype;
+    const modeTip = modeGuide[locale][titleMode] ?? modeGuide[locale].personal;
+
     const prompt = locale === 'zh'
-      ? `你是一个AI开发者社交名片的爆款文案专家。为用户"${username}"生成个性签名(slogan)，这个用户每月消耗${tokenDesc} tokens的AI算力。
+      ? `你是一个AI开发者社交名片的爆款文案专家。为用户生成个性签名(slogan)，这个用户每月消耗${tokenDesc} tokens的AI算力。
 
-风格方向：${styleGuide[style as keyof typeof styleGuide] ?? styleGuide.hype}
-模式方向：${modeGuide[titleMode as keyof typeof modeGuide] ?? modeGuide.personal}
+用户昵称: ${username}
+风格方向：${styleTip}
+模式方向：${modeTip}
 
 要求：
 - 最多16个字
 - 有炫耀感、记忆点、传播感
 - 读起来像能被截图转发的句子
 - 不要太普通，不要鸡汤，不要模板腔
-- 不要用“我是”开头
+- 不要用"我是"开头
 - 可以适度中英混用
 - 至少1条带轻微凡尔赛，至少1条带幽默反差
 
 只输出签名本身，不要解释。输出5个选项，每行一个。`
-      : `You are writing viral copy for an AI developer social card. Create slogans for "${username}", who burns ${tokenDesc} tokens of AI compute monthly.
+      : `You are writing viral copy for an AI developer social card. Create slogans for a user who burns ${tokenDesc} tokens of AI compute monthly.
 
-Style direction: ${styleGuide[style as keyof typeof styleGuide] ?? styleGuide.hype}
-Mode direction: ${modeGuide[titleMode as keyof typeof modeGuide] ?? modeGuide.personal}
+Username: ${username}
+Style direction: ${styleTip}
+Mode direction: ${modeTip}
 
 Requirements:
 - Max 10 words
@@ -107,41 +110,17 @@ Requirements:
 
 Output only the slogans. Give 5 options, one per line.`;
 
-    // Call DeepSeek API
-    const response = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
-        temperature: 0.9,
-      }),
+    const content = await callDeepSeek(apiKey as string, prompt, 150, 0.9);
+
+    return new Response(JSON.stringify({ content }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...buildCorsHeaders(requestOrigin) },
     });
-
-    if (!response.ok) {
-      console.error('DeepSeek API error:', response.status);
-      return new Response(
-        JSON.stringify({ error: `DeepSeek API error: ${response.status}` }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
-
-    const data: DeepSeekResponse = await response.json();
-    const content = data.choices[0]?.message?.content?.trim() || '';
-
-    return new Response(
-      JSON.stringify({ content }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    );
   } catch (error) {
     console.error('generate-slogan error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    );
+    const message = error instanceof Error && error.message === 'AI service temporarily unavailable'
+      ? error.message
+      : 'Internal server error';
+    return jsonResponse({ error: message }, 500, requestOrigin);
   }
 };

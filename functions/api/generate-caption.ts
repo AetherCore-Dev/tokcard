@@ -1,91 +1,61 @@
 import type { Handler } from '@cloudflare/workers-types';
-
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-
-interface DeepSeekResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-}
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
-function formatTokenValue(tokens: number) {
-  if (tokens >= 1e9) return `${(tokens / 1e9).toFixed(1)}B`;
-  if (tokens >= 1e6) return `${(tokens / 1e6).toFixed(1)}M`;
-  if (tokens >= 1e3) return `${(tokens / 1e3).toFixed(0)}K`;
-  return `${tokens}`;
-}
+import { buildCorsHeaders, handleOptions, jsonResponse, validateOrigin } from '../lib/cors';
+import { checkRateLimit } from '../lib/rate-limit';
+import { callDeepSeek, formatTokenValue, sanitizeForPrompt } from '../lib/deepseek';
 
 export const onRequest: Handler = async (context) => {
+  const requestOrigin = context.request.headers.get('Origin');
+
+  const originError = validateOrigin(requestOrigin);
+  if (originError) return originError;
+
   if (context.request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return handleOptions(requestOrigin);
   }
 
   if (context.request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
+    return jsonResponse({ error: 'Method not allowed' }, 405, requestOrigin);
+  }
+
+  // Rate limiting
+  const namespace = context.env?.TOKCARD_METRICS as KVNamespace | undefined;
+  if (namespace) {
+    const ip = context.request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const { allowed } = await checkRateLimit(namespace, ip, 'rate:caption');
+    if (!allowed) {
+      return jsonResponse({ error: 'Rate limit exceeded. Please try again later.' }, 429, requestOrigin);
+    }
   }
 
   try {
-    const body = await context.request.json();
-    const {
-      platform,
-      tokens,
-      metaphor,
-      username,
-      locale,
-      projects = [],
-      slogan = '',
-      trustTier = 'self-reported',
-      trustTierLabel = '',
-      proofSource,
-      proofSourceLabel = '',
-      proofRangeLabel = '',
-      rankingSignalLabel = '',
-      rankingSignalDescription = '',
-    } = body as {
-      platform?: string;
-      tokens?: number;
-      metaphor?: string;
-      username?: string;
-      locale?: 'zh' | 'en';
-      projects?: string[];
-      slogan?: string;
-      trustTier?: string;
-      trustTierLabel?: string;
-      proofSource?: string;
-      proofSourceLabel?: string;
-      proofRangeLabel?: string;
-      rankingSignalLabel?: string;
-      rankingSignalDescription?: string;
-    };
+    const body = await context.request.json() as Record<string, unknown>;
+    const platform = sanitizeForPrompt(String(body.platform ?? ''), 32);
+    const tokens = Math.max(0, Number(body.tokens ?? 0));
+    const metaphor = sanitizeForPrompt(String(body.metaphor ?? ''), 200);
+    const username = sanitizeForPrompt(String(body.username ?? ''), 32);
+    const locale = body.locale === 'en' ? 'en' : 'zh';
+    const rawProjects = Array.isArray(body.projects) ? body.projects : [];
+    const projects = rawProjects.map((p: unknown) => sanitizeForPrompt(String(p ?? ''), 32)).slice(0, 5);
+    const slogan = sanitizeForPrompt(String(body.slogan ?? ''), 200);
+    const trustTier = sanitizeForPrompt(String(body.trustTier ?? 'self-reported'), 32);
+    const trustTierLabel = sanitizeForPrompt(String(body.trustTierLabel ?? ''), 32);
+    const proofSource = sanitizeForPrompt(String(body.proofSource ?? ''), 32);
+    const proofSourceLabel = sanitizeForPrompt(String(body.proofSourceLabel ?? ''), 32);
+    const proofRangeLabel = sanitizeForPrompt(String(body.proofRangeLabel ?? ''), 64);
+    const rankingSignalLabel = sanitizeForPrompt(String(body.rankingSignalLabel ?? ''), 64);
+    const rankingSignalDescription = sanitizeForPrompt(String(body.rankingSignalDescription ?? ''), 128);
 
-    if (!platform || tokens === undefined || !username || !locale) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+    if (!platform || tokens === 0 || !username) {
+      return jsonResponse({ error: 'Missing required fields' }, 400, requestOrigin);
     }
 
     const apiKey = context.env?.DEEPSEEK_API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key not configured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      return jsonResponse({ error: 'AI service not configured' }, 503, requestOrigin);
     }
 
     const tokenDesc = formatTokenValue(tokens);
-    const projectText = projects.length ? projects.join(', ') : locale === 'zh' ? '暂无项目名' : 'no featured projects';
+    const projectText = projects.length ? projects.join(', ') : (locale === 'zh' ? '暂无项目名' : 'no featured projects');
     const trustContext = locale === 'zh'
       ? [
           `- 可信等级：${trustTierLabel || trustTier}`,
@@ -106,8 +76,8 @@ export const onRequest: Handler = async (context) => {
       ? (trustTier === 'self-reported'
           ? '文案里可以自然表达这是当前阶段的 TokCard / 档位信号，但不要伪装成官方验证或真实全站榜单。'
           : trustTier === 'screenshot-backed'
-            ? '文案里要自然带出“截图佐证 / proof attached”的可信感，但不要写得像审计报告。'
-            : '文案里要自然表达“基于 usage 导入记录 / imported usage”带来的可信度，同时保持适合社交发布。')
+            ? '文案里要自然带出"截图佐证 / proof attached"的可信感，但不要写得像审计报告。'
+            : '文案里要自然表达"基于 usage 导入记录 / imported usage"带来的可信度，同时保持适合社交发布。')
       : (trustTier === 'self-reported'
           ? 'The copy may frame this as the current TokCard / tier signal, but must not sound like an official verified leaderboard claim.'
           : trustTier === 'screenshot-backed'
@@ -115,8 +85,9 @@ export const onRequest: Handler = async (context) => {
             : 'Naturally express that the card is based on imported usage records, while still sounding shareable and social.');
 
     const prompt = locale === 'zh'
-      ? `你是顶级社交传播文案专家。请为用户 ${username} 生成 3 版适合 ${platform} 发布的 AI 晒图文案。
+      ? `你是顶级社交传播文案专家。请为一位用户生成 3 版适合 ${platform} 发布的 AI 晒图文案。
 
+用户昵称: ${username}
 信息：
 - token 用量：${tokenDesc}
 - 当前签名：${slogan || '无'}
@@ -147,8 +118,9 @@ BODY: ...
 HASHTAGS: ...
 EMOJI: ...
 VIBE: ...`
-      : `You are a viral social copywriter. Generate 3 caption variants for ${username} to post on ${platform}.
+      : `You are a viral social copywriter. Generate 3 caption variants for a user to post on ${platform}.
 
+Username: ${username}
 Context:
 - token usage: ${tokenDesc}
 - slogan: ${slogan || 'none'}
@@ -180,39 +152,17 @@ HASHTAGS: ...
 EMOJI: ...
 VIBE: ...`;
 
-    const response = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500,
-        temperature: 0.9,
-      }),
-    });
-
-    if (!response.ok) {
-      return new Response(JSON.stringify({ error: `DeepSeek API error: ${response.status}` }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
-    }
-
-    const data: DeepSeekResponse = await response.json();
-    const content = data.choices[0]?.message?.content?.trim() || '';
+    const content = await callDeepSeek(apiKey as string, prompt, 500, 0.9);
 
     return new Response(JSON.stringify({ content }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      headers: { 'Content-Type': 'application/json', ...buildCorsHeaders(requestOrigin) },
     });
   } catch (error) {
     console.error('generate-caption error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
+    const message = error instanceof Error && error.message === 'AI service temporarily unavailable'
+      ? error.message
+      : 'Internal server error';
+    return jsonResponse({ error: message }, 500, requestOrigin);
   }
 };

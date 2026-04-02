@@ -1,4 +1,5 @@
 import type { RankTierInfo } from '@/lib/titles';
+import { validateUrl, validateHexColor } from '@/lib/url';
 
 // Card data structure
 export interface FeaturedProject {
@@ -424,7 +425,7 @@ export function normalizeFeaturedProjects(projects: FeaturedProject[]): Featured
       id: project.id?.trim() || `project-${index + 1}`,
       name: project.name?.trim().slice(0, 28) || '',
       icon: project.icon?.trim() || '✨',
-      url: project.url?.trim() || '',
+      url: validateUrl(project.url?.trim() ?? ''),
       displayType: project.displayType === 'icon' ? 'icon' : 'icon+text',
     }))
     .filter((project) => project.name && project.url);
@@ -439,6 +440,51 @@ export function createEmptyProject(index: number): FeaturedProject {
     displayType: 'icon+text',
   };
 }
+
+const VALID_PRESET_BACKGROUNDS = new Set(PRESET_BACKGROUNDS.map((b) => b.value));
+const MAX_MODEL_BREAKDOWN_ENTRIES = 5;
+
+function normalizeModelBreakdown(mb: ModelBreakdown[] | undefined): ModelBreakdown[] {
+  if (!mb?.length) return DEFAULT_CARD_DATA.modelBreakdown;
+
+  return mb.slice(0, MAX_MODEL_BREAKDOWN_ENTRIES).map((entry) => ({
+    name: String(entry?.name ?? '').slice(0, 32),
+    percentage: Math.max(0, Math.min(100, Number(entry?.percentage ?? 0))),
+    color: validateHexColor(String(entry?.color ?? ''), '#6b7280'),
+  }));
+}
+
+function normalizeBackground(
+  type: CardData['backgroundType'],
+  value: string
+): Pick<CardData, 'backgroundType' | 'backgroundValue'> {
+  if (type === 'preset') {
+    if (VALID_PRESET_BACKGROUNDS.has(value)) {
+      return { backgroundType: 'preset', backgroundValue: value };
+    }
+    return { backgroundType: 'none', backgroundValue: '' };
+  }
+  if (type === 'custom') {
+    return { backgroundType: 'none', backgroundValue: '' };
+  }
+  return { backgroundType: 'none', backgroundValue: '' };
+}
+
+function normalizeAvatarValue(avatarType: CardData['avatarType'], value: string): string {
+  if (avatarType === 'github') {
+    if (/^https:\/\/github\.com\/[a-zA-Z0-9\-]{1,39}\.png$/.test(value)) {
+      return value;
+    }
+    return DEFAULT_CARD_DATA.avatarValue;
+  }
+  if (avatarType === 'photo') {
+    // Only allow https URLs for photos from shared payloads (data: URIs are stripped earlier)
+    if (value.startsWith('https://')) return value;
+    return DEFAULT_CARD_DATA.avatarValue;
+  }
+  return value || DEFAULT_CARD_DATA.avatarValue;
+}
+
 
 export function encodeSharedCardPayload(data: CardData): string | null {
   if (!data.qrcodeUrl.trim()) {
@@ -489,6 +535,11 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
       return null;
     }
 
+    const targetUrl = validateUrl(payload.link);
+    if (!targetUrl) {
+      return null;
+    }
+
     const referralCode = sanitizeReferralCode(payload.ref ?? payload.u ?? '');
     const trustTier = normalizeTrustTier(payload.tr);
     const proofSource = normalizeProofSource(payload.ps);
@@ -499,21 +550,29 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         }
       : undefined;
 
+    const validatedBackground = normalizeBackground(
+      payload.bgT ?? DEFAULT_CARD_DATA.backgroundType,
+      payload.bgV ?? ''
+    );
+
     return {
       card: {
         ...DEFAULT_CARD_DATA,
-        username: payload.u ?? DEFAULT_CARD_DATA.username,
+        username: String(payload.u ?? DEFAULT_CARD_DATA.username).slice(0, 64),
         avatarType: payload.at ?? DEFAULT_CARD_DATA.avatarType,
-        avatarValue: payload.av ?? DEFAULT_CARD_DATA.avatarValue,
-        slogan: payload.s ?? DEFAULT_CARD_DATA.slogan,
-        customMetaphor: payload.m ?? DEFAULT_CARD_DATA.customMetaphor,
-        totalTokens: payload.t ?? DEFAULT_CARD_DATA.totalTokens,
-        lastMonthTokens: payload.lt ?? DEFAULT_CARD_DATA.lastMonthTokens,
+        avatarValue: normalizeAvatarValue(
+          payload.at ?? DEFAULT_CARD_DATA.avatarType,
+          payload.av ?? DEFAULT_CARD_DATA.avatarValue
+        ),
+        slogan: String(payload.s ?? DEFAULT_CARD_DATA.slogan).slice(0, 200),
+        customMetaphor: String(payload.m ?? DEFAULT_CARD_DATA.customMetaphor).slice(0, 200),
+        totalTokens: Math.max(0, Number(payload.t ?? 0)),
+        lastMonthTokens: Math.max(0, Number(payload.lt ?? 0)),
         channel: payload.c ?? DEFAULT_CARD_DATA.channel,
         theme: payload.th ?? DEFAULT_CARD_DATA.theme,
-        backgroundType: payload.bgT ?? DEFAULT_CARD_DATA.backgroundType,
-        backgroundValue: payload.bgV ?? DEFAULT_CARD_DATA.backgroundValue,
-        modelBreakdown: payload.mb?.length ? payload.mb : DEFAULT_CARD_DATA.modelBreakdown,
+        backgroundType: validatedBackground.backgroundType,
+        backgroundValue: validatedBackground.backgroundValue,
+        modelBreakdown: normalizeModelBreakdown(payload.mb),
         qrcodeUrl: '',
         platform: payload.p ?? DEFAULT_CARD_DATA.platform,
         metaphorCategory: payload.mc ?? DEFAULT_CARD_DATA.metaphorCategory,
@@ -525,7 +584,7 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         proofDateRange,
         importedAt: payload.iat,
       },
-      targetUrl: payload.link,
+      targetUrl,
       referralCode,
     };
   } catch {
@@ -545,17 +604,6 @@ export function buildSharedCardUrl(data: CardData, origin: string): string | nul
   const referralCode = sanitizeReferralCode(data.referralCode || data.username);
   if (referralCode) {
     url.searchParams.set('ref', referralCode);
-  }
-
-  return url.toString();
-}
-
-export function buildOgPreviewUrl(data: CardData, origin: string): string {
-  const encoded = encodeSharedCardPayload(data);
-  const url = new URL('/api/og-preview', origin.replace(/\/$/, ''));
-
-  if (encoded) {
-    url.searchParams.set('d', encoded);
   }
 
   return url.toString();
@@ -592,6 +640,11 @@ export function decodeCardTemplatePreset(value: string): Partial<CardData> | nul
       return null;
     }
 
+    const validatedBg = normalizeBackground(
+      preset.bgT ?? DEFAULT_CARD_DATA.backgroundType,
+      preset.bgV ?? ''
+    );
+
     return {
       ...DEFAULT_CARD_DATA,
       username: '',
@@ -602,12 +655,15 @@ export function decodeCardTemplatePreset(value: string): Partial<CardData> | nul
       qrcodeUrl: '',
       referralCode: '',
       avatarType: preset.at ?? DEFAULT_CARD_DATA.avatarType,
-      avatarValue: preset.av ?? DEFAULT_CARD_DATA.avatarValue,
+      avatarValue: normalizeAvatarValue(
+        preset.at ?? DEFAULT_CARD_DATA.avatarType,
+        preset.av ?? DEFAULT_CARD_DATA.avatarValue
+      ),
       channel: preset.c ?? DEFAULT_CARD_DATA.channel,
       theme: preset.th ?? DEFAULT_CARD_DATA.theme,
-      backgroundType: preset.bgT ?? DEFAULT_CARD_DATA.backgroundType,
-      backgroundValue: preset.bgV ?? DEFAULT_CARD_DATA.backgroundValue,
-      modelBreakdown: preset.mb?.length ? preset.mb : DEFAULT_CARD_DATA.modelBreakdown,
+      backgroundType: validatedBg.backgroundType,
+      backgroundValue: validatedBg.backgroundValue,
+      modelBreakdown: normalizeModelBreakdown(preset.mb),
       metaphorCategory: preset.mc ?? DEFAULT_CARD_DATA.metaphorCategory,
       locale: preset.l ?? DEFAULT_CARD_DATA.locale,
       platform: preset.p ?? DEFAULT_CARD_DATA.platform,

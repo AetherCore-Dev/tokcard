@@ -84,6 +84,28 @@ export default function SharedCardLanding() {
 
   useEffect(() => {
     setOrigin(window.location.origin);
+
+    // Try server-injected data first (from /u/abc123 short URL)
+    const serverData = (window as unknown as { __TOKCARD_DATA__?: Record<string, unknown> }).__TOKCARD_DATA__;
+    if (serverData && typeof serverData === 'object') {
+      // Re-encode to base64url so decodeSharedCardPayload can parse it
+      const jsonStr = JSON.stringify(serverData);
+      const bytes = new TextEncoder().encode(jsonStr);
+      let binary = '';
+      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+      const base64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+
+      const decoded = decodeSharedCardPayload(base64url);
+      if (decoded) {
+        setEncodedPayload(base64url);
+        setShared(decoded);
+        setReferralFromQuery(String(serverData.ref || decoded.referralCode || ''));
+        setStatus('ready');
+        return;
+      }
+    }
+
+    // Fallback: legacy ?d= base64 URL parameter
     const searchParams = new URLSearchParams(window.location.search);
     const encoded = searchParams.get('d');
     if (!encoded) {

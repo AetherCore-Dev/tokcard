@@ -1,4 +1,6 @@
 import type { Handler } from '@cloudflare/workers-types';
+import { buildCorsHeaders, handleOptions, jsonResponse, validateOrigin } from '../lib/cors';
+import { checkRateLimit } from '../lib/rate-limit';
 
 type ShareMetricEvent = 'share:view' | 'share:click_destination' | 'share:clone';
 type TrustTier = 'self-reported' | 'screenshot-backed' | 'usage-imported' | 'strong-authenticated';
@@ -28,41 +30,12 @@ interface EventRequestBody {
   };
 }
 
-const DEFAULT_ALLOWED_ORIGIN = 'https://tokcard.dev';
-const ALLOWED_ORIGINS = new Set([
-  'https://tokcard.dev',
-  'https://www.tokcard.dev',
-  'http://localhost:4321',
-  'http://127.0.0.1:4321',
-]);
 const TTL_SECONDS = 60 * 60 * 24 * 90;
 const MAX_PAYLOAD_SIZE = 10_000;
 const METRIC_KEY_PREFIX = 'tokcard:metrics:';
 const VALID_EVENTS: ShareMetricEvent[] = ['share:view', 'share:click_destination', 'share:clone'];
 const VALID_TRUST_TIERS = new Set<TrustTier>(['self-reported', 'screenshot-backed', 'usage-imported', 'strong-authenticated']);
 const VALID_PLATFORMS = new Set<PlatformKey>(['wechat', 'twitter', 'instagram', 'weibo', 'xiaohongshu', 'linkedin']);
-
-function buildCorsHeaders(origin?: string | null) {
-  const allowOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : DEFAULT_ALLOWED_ORIGIN;
-
-  return {
-    'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Cache-Control': 'no-store',
-    'Vary': 'Origin',
-  };
-}
-
-function jsonResponse(body: unknown, status = 200, origin?: string | null) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...buildCorsHeaders(origin),
-    },
-  });
-}
 
 function getMetricKey(metricsId: string) {
   return `${METRIC_KEY_PREFIX}${metricsId}`;
@@ -81,14 +54,13 @@ function emptyStats() {
   };
 }
 
-function applyEvent(record: MetricsRecord, event: ShareMetricEvent) {
-  if (event === 'share:view') {
-    record.views += 1;
-  } else if (event === 'share:click_destination') {
-    record.clicks += 1;
-  } else if (event === 'share:clone') {
-    record.clones += 1;
-  }
+function applyEvent(record: MetricsRecord, event: ShareMetricEvent): MetricsRecord {
+  return {
+    ...record,
+    views: event === 'share:view' ? record.views + 1 : record.views,
+    clicks: event === 'share:click_destination' ? record.clicks + 1 : record.clicks,
+    clones: event === 'share:clone' ? record.clones + 1 : record.clones,
+  };
 }
 
 function getNamespace(context: Parameters<Handler>[0]) {
@@ -151,12 +123,11 @@ async function deriveMetricsId(payload: string) {
 export const onRequest: Handler = async (context) => {
   const requestOrigin = context.request.headers.get('Origin');
 
-  if (requestOrigin && !ALLOWED_ORIGINS.has(requestOrigin)) {
-    return jsonResponse({ error: 'Origin not allowed' }, 403, requestOrigin);
-  }
+  const originError = validateOrigin(requestOrigin);
+  if (originError) return originError;
 
   if (context.request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: buildCorsHeaders(requestOrigin) });
+    return handleOptions(requestOrigin);
   }
 
   const namespace = getNamespace(context);
@@ -165,6 +136,13 @@ export const onRequest: Handler = async (context) => {
       available: false,
       currentStats: emptyStats(),
     }, 200, requestOrigin);
+  }
+
+  // Rate limiting
+  const ip = context.request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const { allowed } = await checkRateLimit(namespace, ip, 'rate:track');
+  if (!allowed) {
+    return jsonResponse({ error: 'Rate limit exceeded' }, 429, requestOrigin);
   }
 
   if (context.request.method === 'GET') {
@@ -214,7 +192,7 @@ export const onRequest: Handler = async (context) => {
     const metadata = sanitizeMetadata(body.metadata);
     const now = new Date().toISOString();
     const existing = await readRecord(namespace, metricsId);
-    const nextRecord: MetricsRecord = existing ?? {
+    const base: MetricsRecord = existing ?? {
       metricsId,
       views: 0,
       clicks: 0,
@@ -227,12 +205,14 @@ export const onRequest: Handler = async (context) => {
       payloadSize: payload.length,
     };
 
-    applyEvent(nextRecord, event);
-    nextRecord.lastUpdatedAt = now;
-    nextRecord.trustTier = metadata.trustTier || nextRecord.trustTier;
-    nextRecord.username = metadata.username || nextRecord.username;
-    nextRecord.platform = metadata.platform || nextRecord.platform;
-    nextRecord.payloadSize = nextRecord.payloadSize || payload.length;
+    const nextRecord: MetricsRecord = {
+      ...applyEvent(base, event),
+      lastUpdatedAt: now,
+      trustTier: metadata.trustTier || base.trustTier,
+      username: metadata.username || base.username,
+      platform: metadata.platform || base.platform,
+      payloadSize: base.payloadSize || payload.length,
+    };
 
     await namespace.put(getMetricKey(metricsId), JSON.stringify(nextRecord), {
       expirationTtl: TTL_SECONDS,

@@ -31,6 +31,11 @@ export async function shareWithFallback(intent: ShareIntent): Promise<'shared' |
   }
 
   const text = [intent.title, intent.text, intent.url].filter(Boolean).join('\n');
-  await navigator.clipboard.writeText(text);
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    console.error('Clipboard write failed:', err);
+    throw new Error('Failed to copy to clipboard');
+  }
   return 'copied';
 }

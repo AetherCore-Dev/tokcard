@@ -38,7 +38,7 @@ const imageDataUrlCache = new Map<string, string>();
 const imageRequestCache = new Map<string, Promise<string>>();
 
 export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-render', onImageReady }: CardRendererProps) {
-  const title = calculateTitle(data.totalTokens);
+  const title = useMemo(() => calculateTitle(data.totalTokens), [data.totalTokens]);
   const rankTier = useMemo(() => getRankTier(data.totalTokens), [data.totalTokens]);
   const achievements = useMemo(() => getAchievements(data), [data]);
   const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
@@ -87,7 +87,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
     })
       .then((url) => setQrDataUrl(url))
       .catch(() => setQrDataUrl(''));
-  }, [data, qrColors]);
+  }, [data.qrcodeUrl, data.username, data.totalTokens, data.lastMonthTokens, data.channel, data.theme, data.slogan, data.platform, data.locale, data.referralCode, qrColors]);
 
   
   // --- PRELOAD EXTERNAL IMAGES FOR SAFE EXPORT ---

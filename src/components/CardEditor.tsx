@@ -27,6 +27,7 @@ import { getAchievements, getGrowthPercentage } from '@/lib/achievements';
 import { getMetaphor, METAPHOR_CATEGORY_LABELS, type MetaphorCategory } from '@/lib/metaphor';
 import { CARD_PRESETS } from '@/lib/presets';
 import { shareWithFallback } from '@/lib/share';
+import { saveCardAndGetShortUrl } from '@/lib/card-storage';
 import { getRankTier } from '@/lib/titles';
 import CardRenderer from './CardRenderer';
 import SuccessAnimation from './SuccessAnimation';
@@ -687,17 +688,39 @@ export default function CardEditor() {
     setAiMetaphors([]);
   }, []);
 
+  const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+  const validateImageFile = useCallback((file: File): string | null => {
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      return isZh ? '仅支持 JPEG/PNG/WebP/GIF 格式' : 'Only JPEG/PNG/WebP/GIF images allowed';
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return isZh ? '文件大小不能超过 5MB' : 'File must be under 5 MB';
+    }
+    return null;
+  }, [isZh]);
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          updateField('avatarValue', event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const error = validateImageFile(file);
+    if (error) {
+      alert(error);
+      return;
     }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        updateField('avatarValue', event.target.result as string);
+      }
+    };
+    reader.onerror = () => {
+      alert(isZh ? '文件读取失败，请重试' : 'Failed to read file. Please try again.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleBackgroundTypeChange = useCallback((type: CardData['backgroundType']) => {
@@ -725,6 +748,12 @@ export default function CardEditor() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const error = validateImageFile(file);
+    if (error) {
+      alert(error);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
@@ -735,18 +764,36 @@ export default function CardEditor() {
         }));
       }
     };
+    reader.onerror = () => {
+      alert(isZh ? '文件读取失败，请重试' : 'Failed to read file. Please try again.');
+    };
     reader.readAsDataURL(file);
-  }, []);
+  }, [validateImageFile, isZh]);
 
   const handleProofFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).map((file) => ({
+    const rawFiles = Array.from(e.target.files ?? []);
+    const ALLOWED_PROOF_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    const MAX_PROOF_SIZE = 10 * 1024 * 1024; // 10 MB
+
+    const validFiles = rawFiles.filter((file) => {
+      if (!ALLOWED_PROOF_TYPES.has(file.type)) return false;
+      if (file.size > MAX_PROOF_SIZE) return false;
+      return true;
+    });
+
+    const files = validFiles.map((file) => ({
       name: file.name,
       size: file.size,
     }));
 
+    if (rawFiles.length > 0 && validFiles.length === 0) {
+      setProofFeedback(isZh ? '仅支持 JPEG/PNG/WebP/GIF 格式，且不超过 10MB。' : 'Only JPEG/PNG/WebP/GIF under 10MB allowed.');
+      return;
+    }
+
     setProofFiles(files);
     setProofFeedback(files.length > 0
-      ? (isZh ? `已选择 ${files.length} 张截图，可标记为“截图佐证”。` : `${files.length} screenshot(s) selected. You can now mark the card as proof attached.`)
+      ? (isZh ? `已选择 ${files.length} 张截图，可标记为”截图佐证”。` : `${files.length} screenshot(s) selected. You can now mark the card as proof attached.`)
       : null);
   }, [isZh]);
 
@@ -943,7 +990,14 @@ export default function CardEditor() {
 
       const filename = `tokcard-${data.username || 'card'}-${data.platform}.png`;
       const nextShareCaption = shareCaption || buildShareCaption();
-      const nextShareLink = buildSharedCardUrl({ ...data, referralCode: sanitizeReferralCode(data.referralCode || data.username) }, window.location.origin) ?? '';
+
+      // Try short URL first, fall back to legacy base64 URL
+      const cardWithRef = { ...data, referralCode: sanitizeReferralCode(data.referralCode || data.username) };
+      const shortResult = await saveCardAndGetShortUrl(cardWithRef, window.location.origin);
+      const nextShareLink = shortResult?.shortUrl
+        ?? buildSharedCardUrl(cardWithRef, window.location.origin)
+        ?? '';
+
       let shared = false;
 
       const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -994,7 +1048,7 @@ export default function CardEditor() {
     }
   }, [buildShareCaption, data, isZh, downloadViaLink, exportRenderId, isPreviewReady, shareCaption, waitForImagesToSettle]);
 
-  const MobileTabBar = () => (
+  const mobileTabBar = (
     <div className="lg:hidden sticky top-0 z-20 -mx-4 px-4 py-3 bg-[#fbfbfd]/80 backdrop-blur-xl border-b border-[#d2d2d7]/30">
       <div className="flex gap-2">
         <button type="button"
@@ -1032,7 +1086,7 @@ export default function CardEditor() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {isMobile && <MobileTabBar />}
+        {isMobile && mobileTabBar}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 xl:gap-12">
           {/* Left: Form */}
