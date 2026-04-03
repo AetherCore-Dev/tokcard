@@ -1153,20 +1153,18 @@ export default function CardEditor() {
                 </div>
                 <div className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#0071e3]">{isZh ? '自动成片' : 'Auto styled'}</div>
               </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {CARD_PRESETS.map((preset) => (
                   <button
                     key={preset.id}
                     type="button"
                     onClick={() => applyPreset(preset.id)}
-                    className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4 text-left transition hover:border-[#0071e3] hover:bg-white"
+                    className="rounded-2xl border border-[#dbe4ff] bg-white p-3 text-left transition hover:border-[#0071e3] hover:shadow-md group"
+                    style={{ borderLeftWidth: 3, borderLeftColor: preset.accent }}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-[#1d1d1f]">{preset.emoji} {preset.name}</div>
-                        <div className="mt-1 text-xs leading-5 text-[#6b7280]">{preset.description}</div>
-                      </div>
-                    </div>
+                    <div className="text-lg leading-none">{preset.emoji}</div>
+                    <div className="mt-2 text-xs font-semibold text-[#1d1d1f] leading-tight">{preset.name}</div>
+                    <div className="mt-1 text-[10px] leading-4 text-[#94a3b8]">{preset.description}</div>
                   </button>
                 ))}
               </div>

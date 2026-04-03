@@ -547,6 +547,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
         position: 'relative', zIndex: 1,
         display: 'flex', flexDirection: 'column',
         height: '100%',
+        overflow: 'hidden',
         padding: data.theme === 'terminal-green'
           ? `${44 * s}px ${36 * s}px ${28 * s}px`
           : `${32 * s}px ${36 * s}px ${28 * s}px`,
@@ -758,8 +759,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
             transition: 'background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
             boxShadow: `0 12px 32px ${title.glowColor}`,
           }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 * s }}>
-              <div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 * s, overflow: 'hidden' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontSize: 44 * s, fontWeight: 900, lineHeight: 1,
                   letterSpacing: '-0.04em',
@@ -820,7 +821,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 <div style={{ fontSize: 10 * s, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em' }}>
                   {isZh ? '本月档位' : 'Tier'}
                 </div>
-                <div style={{ marginTop: 4 * s, fontSize: 16 * s, fontWeight: 900, color: rankTier.accent }}>
+                <div style={{ marginTop: 4 * s, fontSize: 16 * s, fontWeight: 900, color: rankTier.accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {rankTier.badge} {isZh ? rankTier.label : rankTier.labelEn}
                 </div>
                 <div style={{ marginTop: 4 * s, fontSize: 9 * s, color: tc.textDim }}>
@@ -908,8 +909,10 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   justifyContent: 'center',
                   background: `${tc.accent}16`,
                   fontSize: 12 * s,
+                  overflow: 'hidden',
+                  lineHeight: 1,
                 }}>{stat.icon}</div>
-                <div style={{ fontSize: 14 * s, fontWeight: 900, color: tc.text, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+                <div style={{ fontSize: 14 * s, fontWeight: 900, color: tc.text, lineHeight: 1.2, letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {stat.value}
                 </div>
                 <div style={{ fontSize: 9 * s, fontWeight: 600, color: tc.textMuted, marginTop: 3 * s, textTransform: 'uppercase', letterSpacing: '0.12em' }}>

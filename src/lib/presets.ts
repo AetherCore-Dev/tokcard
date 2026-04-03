@@ -5,6 +5,7 @@ export interface CardPreset {
   name: string;
   description: string;
   emoji: string;
+  accent: string;
   defaults: Partial<CardData>;
 }
 
@@ -14,6 +15,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: 'Claude 重度用户',
     description: '高压排面，适合展示深度工作流。',
     emoji: '🟠',
+    accent: '#d97706',
     defaults: {
       channel: 'claude',
       theme: 'brand-dark',
@@ -34,6 +36,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: 'Cursor 编码战神',
     description: '代码型表达，更适合极客圈分享。',
     emoji: '🟣',
+    accent: '#22c55e',
     defaults: {
       channel: 'cursor',
       theme: 'terminal-green',
@@ -54,6 +57,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: '社交爆款款',
     description: '适合朋友圈和小红书，强调记忆点。',
     emoji: '🔥',
+    accent: '#ec4899',
     defaults: {
       channel: 'gpt',
       theme: 'gradient-dream',
@@ -74,6 +78,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: '作品名片款',
     description: '适合作为个人项目名片和商务展示。',
     emoji: '🧠',
+    accent: '#6b7280',
     defaults: {
       channel: 'gpt',
       theme: 'minimal-gray',
@@ -94,6 +99,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: '赛博炫技款',
     description: '视觉更猛，适合强调实验感。',
     emoji: '⚡',
+    accent: '#06b6d4',
     defaults: {
       channel: 'deepseek',
       theme: 'cyberpunk-neon',
@@ -114,6 +120,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: 'Gemini 探索者',
     description: '多模型混用，适合全栈 AI 玩家。',
     emoji: '🌊',
+    accent: '#3b82f6',
     defaults: {
       channel: 'gemini',
       theme: 'ocean-blue',
@@ -134,6 +141,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: '团队 Leader',
     description: '管理视角，展示团队 AI 协作效率。',
     emoji: '👑',
+    accent: '#8b5cf6',
     defaults: {
       channel: 'claude',
       theme: 'bold-violet',
@@ -154,6 +162,7 @@ export const CARD_PRESETS: CardPreset[] = [
     name: '独立开发者',
     description: '产品导向，适合展示个人作品集。',
     emoji: '🚀',
+    accent: '#f97316',
     defaults: {
       channel: 'cursor',
       theme: 'sunset-warm',
