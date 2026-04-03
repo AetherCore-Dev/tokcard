@@ -3,6 +3,7 @@ const DEFAULT_ALLOWED_ORIGIN = 'https://tokcard.dev';
 export const ALLOWED_ORIGINS = new Set([
   'https://tokcard.dev',
   'https://www.tokcard.dev',
+  'https://tokcard.pages.dev',
   'http://localhost:4321',
   'http://127.0.0.1:4321',
 ]);
