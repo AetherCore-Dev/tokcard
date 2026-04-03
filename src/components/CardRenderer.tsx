@@ -442,7 +442,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
       id={renderId}
       style={{
         width: 540 * s,
-        height: 720 * s,
+        minHeight: 720 * s,
         background: tc.bg,
         color: tc.text,
         fontFamily: font,

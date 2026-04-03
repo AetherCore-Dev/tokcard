@@ -2136,7 +2136,7 @@ export default function CardEditor() {
           left: -10000,
           top: 0,
           width: platformInfo.width,
-          height: platformInfo.height,
+          minHeight: platformInfo.height,
           pointerEvents: 'none',
         }}
       >
@@ -2144,12 +2144,11 @@ export default function CardEditor() {
           id={exportRenderId}
           style={{
             width: platformInfo.width,
-            height: platformInfo.height,
+            minHeight: platformInfo.height,
             background: stageBackground,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            overflow: 'hidden',
           }}
         >
           <CardRenderer data={data} renderId={`${exportRenderId}-card`} scale={exportCardScale} onImageReady={setIsPreviewReady} />
