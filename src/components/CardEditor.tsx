@@ -1752,6 +1752,20 @@ export default function CardEditor() {
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
                 {isZh ? '精选项目名片' : 'Featured projects'}
               </label>
+              <div className="mb-3 text-xs text-[#94a3b8]">
+                {isZh ? '示例: 🐙 GitHub https://github.com/xxx · 🌐 我的博客 https://blog.xxx.com' : 'Example: 🐙 GitHub https://github.com/xxx · 🌐 My Blog https://blog.xxx.com'}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  updateProject(0, 'icon', '🐙');
+                  updateProject(0, 'name', 'GitHub');
+                  updateProject(0, 'url', 'https://github.com');
+                }}
+                className="mt-2 text-xs font-medium text-[#0071e3] hover:underline"
+              >
+                {isZh ? '一键填入示例' : 'Fill example'}
+              </button>
               <div className="space-y-3">
                 {ensureProjectSlots.map((project, index) => (
                   <div key={project.id} className="grid gap-3 md:grid-cols-[84px_minmax(0,1fr)_minmax(0,1.4fr)]">
@@ -1759,21 +1773,21 @@ export default function CardEditor() {
                       type="text"
                       value={project.icon}
                       onChange={e => updateProject(index, 'icon', e.target.value)}
-                      placeholder={isZh ? '图标/Emoji' : 'Icon'}
+                      placeholder='🐙'
                       className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
                     />
                     <input
                       type="text"
                       value={project.name}
                       onChange={e => updateProject(index, 'name', e.target.value)}
-                      placeholder={isZh ? '项目名 / GitHub / 网站' : 'Project name'}
+                      placeholder={isZh ? '如: GitHub / 我的博客' : 'e.g. GitHub / My Blog'}
                       className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
                     />
                     <input
                       type="url"
                       value={project.url}
                       onChange={e => updateProject(index, 'url', e.target.value)}
-                      placeholder="https://..."
+                      placeholder="https://github.com/your-name"
                       className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
                     />
                   </div>

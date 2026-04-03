@@ -325,7 +325,7 @@ export default function SharedCardLanding() {
             <div className="flex items-end justify-between gap-4">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '项目发现区' : 'Project discovery'}</div>
-                <div className="mt-2 text-xl font-semibold text-[#111827]">{isZh ? '这张卡还会把你带去这些项目' : 'This card can also lead you here'}</div>
+                <div className="mt-2 text-xl font-semibold text-[#111827]">{isZh ? `看看 @${shared?.card.username} 在做什么` : `See what @${shared?.card.username} is building`}</div>
               </div>
               <div className="text-xs text-[#64748b]">{featuredProjects.length} {isZh ? '个入口' : 'links'}</div>
             </div>

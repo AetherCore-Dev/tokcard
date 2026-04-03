@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as QRCode from 'qrcode';
 import type { CardData } from '@/lib/card';
 import {
-  buildSharedCardUrl,
   CHANNELS,
   formatProofDateRange,
   formatTokens,
@@ -73,21 +72,21 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
       return;
     }
 
-    const sharedUrl = buildSharedCardUrl(data, window.location.origin);
-    if (!sharedUrl) {
+    const qrTarget = data.qrcodeUrl.trim();
+    if (!qrTarget) {
       setQrDataUrl('');
       return;
     }
 
-    QRCode.toDataURL(sharedUrl, {
-      width: 256,
+    QRCode.toDataURL(qrTarget, {
+      width: 512,
       margin: 1,
       color: qrColors,
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: 'L',
     })
       .then((url) => setQrDataUrl(url))
       .catch(() => setQrDataUrl(''));
-  }, [data.qrcodeUrl, data.username, data.totalTokens, data.lastMonthTokens, data.channel, data.theme, data.slogan, data.platform, data.locale, data.referralCode, qrColors]);
+  }, [data.qrcodeUrl, qrColors]);
 
   
   // --- PRELOAD EXTERNAL IMAGES FOR SAFE EXPORT ---
@@ -584,7 +583,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
             }}>
-              <span>{rankTier.badge}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, flexShrink: 0, lineHeight: 1 }}>{rankTier.badge}</span>
               <span>{isZh ? rankTier.label : rankTier.labelEn}</span>
             </div>
           </div>
@@ -649,10 +648,11 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               <div style={{ fontSize: 9 * s, fontWeight: 700, color: tc.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 {isZh ? '开发者身份' : 'Builder identity'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 * s, marginTop: 4 * s }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 * s, marginTop: 4 * s, overflow: 'hidden' }}>
                 <span style={{
                   fontSize: 22 * s, fontWeight: 900, letterSpacing: '-0.04em',
                   color: tc.text,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 * s,
                 }}>
                   {data.theme === 'terminal-green' ? '$ ' : ''}{data.username || 'anonymous'}
                 </span>
@@ -665,6 +665,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   color: title.color,
                   border: `1px solid ${title.color}30`,
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}>
                   {title.icon} {isZh ? title.title : title.titleEn}
                 </span>
@@ -937,7 +938,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                     border: `1px solid ${tc.panelBorder}`,
                   }}
                 >
-                  <span>{achievement.icon}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, flexShrink: 0, lineHeight: 1 }}>{achievement.icon}</span>
                   <span>{isZh ? achievement.label : achievement.labelEn}</span>
                 </span>
               ))}
@@ -1054,7 +1055,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                         maxWidth: 150 * s,
                       }}
                     >
-                      <span>{project.icon || '✨'}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, flexShrink: 0, lineHeight: 1 }}>{project.icon || '✨'}</span>
                       {project.displayType !== 'icon' && (
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
                       )}
@@ -1109,7 +1110,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
             {qrDataUrl && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{
-                  width: 76 * s, height: 76 * s,
+                  width: 88 * s, height: 88 * s,
                   borderRadius: data.theme === 'mono-brutal' ? 0 : 10 * s,
                   overflow: 'hidden',
                   background: qrColors.light,
@@ -1130,7 +1131,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 <div style={{
                   fontSize: 8 * s, color: tc.textMuted, marginTop: 5 * s,
                   textAlign: 'center', letterSpacing: '0.08em', textTransform: 'uppercase',
-                  maxWidth: 92 * s,
+                  maxWidth: 100 * s,
                 }}>
                   {isZh ? '扫码进入我的分享页' : 'Scan to view my share page'}
                 </div>
