@@ -271,6 +271,8 @@ function parseCaptionOptions(raw: string): AICaptionOption[] {
 export default function CardEditor() {
   const [data, setData] = useState<CardData>({ ...DEFAULT_CARD_DATA, theme: 'brand-light' });
   const [tokenInput, setTokenInput] = useState('');
+  const [step, setStep] = useState(1);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [aiSlogans, setAiSlogans] = useState<string[]>([]);
@@ -335,7 +337,33 @@ export default function CardEditor() {
 
     setData((prev) => ({ ...prev, ...decodedPreset }));
     setTokenInput('');
+    setStep(3);
   }, []);
+
+  // localStorage auto-save
+  useEffect(() => {
+    const saved = localStorage.getItem('tokcard:draft');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && parsed.username) {
+          setData(prev => ({ ...prev, ...parsed }));
+          if (parsed.totalTokens) {
+            setTokenInput(String(parsed.totalTokens));
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (data.username || data.totalTokens > 0) {
+        localStorage.setItem('tokcard:draft', JSON.stringify(data));
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [data]);
 
   const isZh = data.locale === 'zh';
   const platformInfo = PLATFORMS[data.platform];
@@ -1048,21 +1076,26 @@ export default function CardEditor() {
     }
   }, [buildShareCaption, data, isZh, downloadViaLink, exportRenderId, isPreviewReady, shareCaption, waitForImagesToSettle]);
 
-  const mobileTabBar = (
-    <div className="lg:hidden sticky top-0 z-20 -mx-4 px-4 py-3 bg-[#fbfbfd]/80 backdrop-blur-xl border-b border-[#d2d2d7]/30">
+  const mobileBottomBar = (
+    <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 px-4 pb-4 pt-2 bg-gradient-to-t from-[#fbfbfd] via-[#fbfbfd] to-transparent">
       <div className="flex gap-2">
-        <button type="button"
-          onClick={() => setActiveTab('edit')}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${activeTab === 'edit' ? 'bg-[#0071e3] text-white' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}
-        >
-          {isZh ? '编辑' : 'Edit'}
-        </button>
-        <button type="button"
-          onClick={() => setActiveTab('preview')}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${activeTab === 'preview' ? 'bg-[#0071e3] text-white' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}
-        >
-          {isZh ? '预览' : 'Preview'}
-        </button>
+        {step > 1 && (
+          <button type="button" onClick={() => setStep(step - 1)}
+            className="px-5 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold">
+            {isZh ? '上一步' : 'Back'}
+          </button>
+        )}
+        {step < 3 ? (
+          <button type="button" onClick={() => setStep(step + 1)}
+            className="flex-1 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20">
+            {step === 2 ? (isZh ? '预览并导出' : 'Preview & Export') : (isZh ? '下一步 →' : 'Next →')}
+          </button>
+        ) : (
+          <button type="button" onClick={handleExport} disabled={isExporting}
+            className="flex-1 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20 disabled:opacity-60">
+            {isExporting ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '立即出图' : 'Export Now')}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1086,39 +1119,32 @@ export default function CardEditor() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {isMobile && mobileTabBar}
+        {isMobile && mobileBottomBar}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 xl:gap-12">
           {/* Left: Form */}
-          <div className={`space-y-8 min-w-0 ${isMobile && activeTab !== 'edit' ? 'hidden' : ''}`}>
-            <div className="rounded-[30px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f7fbff_55%,#f8f5ff_100%)] p-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-3 py-1 text-[11px] font-semibold text-[#64748b] shadow-sm">
-                <span>{isZh ? 'Create your TokCard' : 'Create your TokCard'}</span>
-                <span className="text-[#cbd5e1]">·</span>
-                <span>{isZh ? '从数据到排面，一步到位' : 'From stats to social proof'}</span>
-              </div>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[#1d1d1f] leading-tight">
-                {isZh ? '把你的 AI 用量，做成一张会被转发的个人战绩名片。' : 'Turn your AI usage into a shareable performance card.'}
-              </h1>
-              <p className="mt-4 max-w-3xl text-sm md:text-base leading-7 text-[#6b7280]">
-                {isZh ? '这里不是在填表，而是在快速生成一张带档位、成就、项目入口和分享文案的内容资产。' : 'This is not just a form. It is a fast way to generate a social asset with rank, achievements, project links, and post-ready copy.'}
-              </p>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-[#dbe4ff] bg-white/90 p-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '第一步' : 'Step 1'}</div>
-                  <div className="mt-2 text-sm font-semibold text-[#1d1d1f]">{isZh ? '填你的身份和 token 体量' : 'Add identity and token volume'}</div>
-                </div>
-                <div className="rounded-2xl border border-[#dbe4ff] bg-white/90 p-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '第二步' : 'Step 2'}</div>
-                  <div className="mt-2 text-sm font-semibold text-[#1d1d1f]">{isZh ? '补齐项目、比喻、文案' : 'Add projects, metaphor, and copy'}</div>
-                </div>
-                <div className="rounded-2xl border border-[#dbe4ff] bg-white/90 p-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '第三步' : 'Step 3'}</div>
-                  <div className="mt-2 text-sm font-semibold text-[#1d1d1f]">{isZh ? '导出并开始传播' : 'Export and start sharing'}</div>
-                </div>
-              </div>
+          <div className={`space-y-8 min-w-0 ${isMobile && step === 3 ? 'hidden' : ''}`}>
+            {/* Step indicator */}
+            <div className="flex items-center gap-3 mb-6">
+              {[1, 2, 3].map((s) => (
+                <button key={s} type="button" onClick={() => setStep(s)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                    step === s ? 'bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20'
+                    : step > s ? 'bg-[#e8f5e9] text-[#2e7d32]'
+                    : 'bg-[#f5f5f7] text-[#86868b]'
+                  }`}>
+                  <span>{step > s ? '✓' : s}</span>
+                  <span className="hidden sm:inline">{
+                    s === 1 ? (isZh ? '你是谁' : 'Identity')
+                    : s === 2 ? (isZh ? '卡片风格' : 'Style')
+                    : (isZh ? '导出分享' : 'Export')
+                  }</span>
+                </button>
+              ))}
             </div>
 
+            {/* ===== STEP 1: 你是谁 ===== */}
+            {step === 1 && (<>
             <div className="rounded-[24px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -1176,50 +1202,69 @@ export default function CardEditor() {
                 {isZh ? '支持 K/M/B/万 缩写，如 2.3B = 23 亿' : 'Supports K/M/B suffixes, e.g. 2.3B = 2,300,000,000'}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {['120M', '780M', '2.3B'].map((preset) => (
+                {([
+                  { label: '轻度玩家', labelEn: 'Casual', value: '10M' },
+                  { label: '中度用户', labelEn: 'Regular', value: '120M' },
+                  { label: '重度开发者', labelEn: 'Heavy', value: '500M' },
+                  { label: '骨灰级', labelEn: 'Power User', value: '2.3B' },
+                ] as const).map((preset) => (
                   <button
-                    key={preset}
+                    key={preset.value}
                     type="button"
-                    onClick={() => handleTokenInput(preset)}
-                    className="rounded-full border border-[#dbe4ff] bg-white px-3 py-1.5 text-xs font-medium text-[#334155] hover:border-[#0071e3] hover:text-[#0071e3]"
+                    onClick={() => handleTokenInput(preset.value)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                      tokenInput === preset.value
+                        ? 'border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3]'
+                        : 'border-[#dbe4ff] bg-white text-[#334155] hover:border-[#0071e3] hover:text-[#0071e3]'
+                    }`}
                   >
-                    {isZh ? `试试 ${preset}` : `Try ${preset}`}
+                    {isZh ? preset.label : preset.labelEn} ({preset.value})
                   </button>
                 ))}
               </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                    {isZh ? '上月 Token' : 'Last month tokens'}
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={data.lastMonthTokens || ''}
-                    onChange={e => updateField('lastMonthTokens', Math.max(0, Number(e.target.value) || 0))}
-                    placeholder={isZh ? '用于生成增速徽章' : 'Used for growth badge'}
-                    className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
-                  />
+              <details className="mt-3 text-xs text-[#6b7280]">
+                <summary className="cursor-pointer text-[#0071e3] hover:underline">
+                  {isZh ? '去哪里查 token 用量？' : 'Where to find your token usage?'}
+                </summary>
+                <div className="mt-2 space-y-1 pl-2 border-l-2 border-[#dbe4ff]">
+                  <div><strong>Claude:</strong> {isZh ? 'Settings → Usage' : 'Settings → Usage'}</div>
+                  <div><strong>GPT:</strong> {isZh ? 'Usage dashboard（platform.openai.com/usage）' : 'Usage dashboard (platform.openai.com/usage)'}</div>
+                  <div><strong>Cursor:</strong> {isZh ? 'Account → Usage' : 'Account → Usage'}</div>
                 </div>
-                <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">{isZh ? '自动档位' : 'Auto rank'}</div>
-                  <div className="mt-2 text-lg font-semibold text-[#1d1d1f]">{rankTier.badge} {isZh ? rankTier.clubLabel : rankTier.clubLabelEn}</div>
-                  <div className="mt-1 text-sm text-[#64748b]">{rankingSignalLabel}{growth > 0 ? ` · +${growth}%` : ''}</div>
-                  <div className="mt-1 text-xs leading-5 text-[#94a3b8]">{rankingSignalDescription}</div>
-                </div>
-              </div>
-              {achievements.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {achievements.map((achievement) => (
-                    <span key={achievement.id} className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]">
-                      <span>{achievement.icon}</span>
-                      <span>{isZh ? achievement.label : achievement.labelEn}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
+              </details>
             </div>
 
+            {/* Channel selector (main model) */}
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '主力模型' : 'Main Model'}
+              </label>
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                {(['claude', 'gpt', 'cursor', 'deepseek', 'gemini', 'other'] as const).map((ch) => {
+                  const chInfo = { claude: 'Claude', gpt: 'GPT', cursor: 'Cursor', deepseek: 'DeepSeek', gemini: 'Gemini', other: isZh ? '其他/混合' : 'Other/Mixed' }[ch];
+                  return (
+                    <button type="button" key={ch}
+                      onClick={() => updateField('channel', ch)}
+                      className={`p-3 rounded-xl border text-left transition-all ${data.channel === ch ? 'border-[#0071e3] bg-[#0071e3]/5 ring-4 ring-[#0071e3]/10' : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'}`}
+                    >
+                      <div className="text-sm font-semibold text-[#1d1d1f]">{chInfo}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 1 navigation */}
+            <div className="flex gap-3 mt-6">
+              <button type="button" onClick={() => setStep(step + 1)}
+                className="flex-1 px-6 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20 hover:opacity-95">
+                {isZh ? '下一步' : 'Next'}
+              </button>
+            </div>
+            </>)}
+
+            {/* ===== STEP 2: 卡片风格 ===== */}
+            {step === 2 && (<>
             {/* Theme */}
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
@@ -1272,6 +1317,148 @@ export default function CardEditor() {
                 {isZh ? '切到目标平台后，预览和导出会按对应比例居中排版。' : 'Preview and export will fit the selected platform ratio.'}
               </p>
             </div>
+
+            {/* Slogan - Step 2 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[13px] font-semibold text-[#86868b] uppercase tracking-wide">
+                  {isZh ? '个人签名' : 'Slogan'}
+                </label>
+                <button type="button"
+                  onClick={handleGenerateSlogan}
+                  disabled={isGeneratingSlogan}
+                  className="text-xs px-3 py-1.5 rounded-full font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 bg-[#0071e3]/10 text-[#0071e3] hover:bg-[#0071e3]/20"
+                >
+                  {isGeneratingSlogan ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '✨ AI 帮我写' : '✨ AI Generate')}
+                </button>
+              </div>
+              <div className="mb-3 flex flex-wrap gap-2">
+                {(Object.entries(SLOGAN_MODE_LABELS) as [keyof typeof SLOGAN_MODE_LABELS, { zh: string; en: string }][]).map(([key, label]) => (
+                  <button
+                    type="button"
+                    key={key}
+                    onClick={() => setSloganMode(key)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${sloganMode === key ? 'bg-[#0071e3] text-white' : 'bg-[#eef4ff] text-[#1d1d1f] hover:bg-[#dce9ff]'}`}
+                  >
+                    {isZh ? label.zh : label.en}
+                  </button>
+                ))}
+              </div>
+              <div className="mb-3 flex flex-wrap gap-2">
+                {(Object.entries(SLOGAN_CATEGORY_LABELS) as [keyof typeof PRESET_SLOGANS_BY_CATEGORY, { zh: string; en: string }][]).map(([key, label]) => (
+                  <button
+                    type="button"
+                    key={key}
+                    onClick={() => setSloganCategory(key)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${sloganCategory === key ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
+                  >
+                    {isZh ? label.zh : label.en}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={data.slogan}
+                onChange={e => updateField('slogan', e.target.value)}
+                placeholder={isZh ? '一句话介绍自己' : 'One line about you'}
+                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                maxLength={60}
+              />
+              {aiSlogans.length > 0 && (
+                <div className="mt-3 p-4 rounded-xl bg-white border border-[#0071e3]/30 shadow-sm">
+                  <div className="text-xs font-medium mb-3 text-[#0071e3]">{isZh ? 'AI 推荐 (点击选择)' : 'AI Suggestions (click to use)'}</div>
+                  <div className="flex flex-col gap-2">
+                    {aiSlogans.map((s, i) => (
+                      <button type="button"
+                        key={i}
+                        onClick={() => updateField('slogan', s)}
+                        className={`text-left text-sm px-4 py-2.5 rounded-lg transition-all border ${data.slogan === s ? 'bg-[#0071e3] text-white border-[#0071e3] shadow-sm' : 'bg-[#f5f5f7] text-[#1d1d1f] border-transparent hover:bg-[#0071e3] hover:text-white'}`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {PRESET_SLOGANS_BY_CATEGORY[sloganCategory].map(s => (
+                  <button type="button"
+                    key={s}
+                    onClick={() => updateField('slogan', s)}
+                    className={`text-xs px-3 py-1.5 border rounded-full transition-colors ${data.slogan === s ? 'bg-[#0071e3] border-[#0071e3] text-white' : 'bg-white border-[#d2d2d7] text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Step 2 navigation */}
+            <div className="flex gap-3 mt-6">
+              <button type="button" onClick={() => setStep(step - 1)}
+                className="px-6 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold hover:bg-[#f5f5f7]">
+                {isZh ? '上一步' : 'Back'}
+              </button>
+              <button type="button" onClick={() => setStep(step + 1)}
+                className="flex-1 px-6 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20 hover:opacity-95">
+                {isZh ? '预览并导出' : 'Preview & Export'}
+              </button>
+            </div>
+            </>)}
+
+            {/* ===== 「更多选项」Advanced accordion (visible on step 1 and 2) ===== */}
+            {(step === 1 || step === 2) && (
+            <div className="rounded-[24px] border border-[#dbe4ff] bg-white shadow-sm overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-[#f8fbff] transition-colors"
+              >
+                <div>
+                  <span className="text-[13px] font-semibold uppercase tracking-wide text-[#86868b]">
+                    {isZh ? '更多选项' : 'More Options'}
+                  </span>
+                  <span className="ml-2 text-xs text-[#94a3b8]">
+                    {isZh ? '头像、背景、比喻、项目名片等' : 'Avatar, background, metaphor, projects, etc.'}
+                  </span>
+                </div>
+                <span className={`text-[#86868b] transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▼</span>
+              </button>
+              {showAdvanced && (
+              <div className="px-5 pb-5 space-y-8">
+
+            {/* Last month tokens */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                  {isZh ? '上月 Token' : 'Last month tokens'}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={data.lastMonthTokens || ''}
+                  onChange={e => updateField('lastMonthTokens', Math.max(0, Number(e.target.value) || 0))}
+                  placeholder={isZh ? '用于生成增速徽章' : 'Used for growth badge'}
+                  className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                />
+              </div>
+              <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">{isZh ? '自动档位' : 'Auto rank'}</div>
+                <div className="mt-2 text-lg font-semibold text-[#1d1d1f]">{rankTier.badge} {isZh ? rankTier.clubLabel : rankTier.clubLabelEn}</div>
+                <div className="mt-1 text-sm text-[#64748b]">{rankingSignalLabel}{growth > 0 ? ` · +${growth}%` : ''}</div>
+                <div className="mt-1 text-xs leading-5 text-[#94a3b8]">{rankingSignalDescription}</div>
+              </div>
+            </div>
+            {achievements.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {achievements.map((achievement) => (
+                  <span key={achievement.id} className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]">
+                    <span>{achievement.icon}</span>
+                    <span>{isZh ? achievement.label : achievement.labelEn}</span>
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Background */}
             <div>
@@ -1420,81 +1607,6 @@ export default function CardEditor() {
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Slogan */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-[13px] font-semibold text-[#86868b] uppercase tracking-wide">
-                  {isZh ? '个人签名' : 'Slogan'}
-                </label>
-                <button type="button"
-                  onClick={handleGenerateSlogan}
-                  disabled={isGeneratingSlogan}
-                  className="text-xs px-3 py-1.5 rounded-full font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 bg-[#0071e3]/10 text-[#0071e3] hover:bg-[#0071e3]/20"
-                >
-                  {isGeneratingSlogan ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '✨ AI 帮我写' : '✨ AI Generate')}
-                </button>
-              </div>
-              <div className="mb-3 flex flex-wrap gap-2">
-                {(Object.entries(SLOGAN_MODE_LABELS) as [keyof typeof SLOGAN_MODE_LABELS, { zh: string; en: string }][]).map(([key, label]) => (
-                  <button
-                    type="button"
-                    key={key}
-                    onClick={() => setSloganMode(key)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${sloganMode === key ? 'bg-[#0071e3] text-white' : 'bg-[#eef4ff] text-[#1d1d1f] hover:bg-[#dce9ff]'}`}
-                  >
-                    {isZh ? label.zh : label.en}
-                  </button>
-                ))}
-              </div>
-              <div className="mb-3 flex flex-wrap gap-2">
-                {(Object.entries(SLOGAN_CATEGORY_LABELS) as [keyof typeof PRESET_SLOGANS_BY_CATEGORY, { zh: string; en: string }][]).map(([key, label]) => (
-                  <button
-                    type="button"
-                    key={key}
-                    onClick={() => setSloganCategory(key)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${sloganCategory === key ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
-                  >
-                    {isZh ? label.zh : label.en}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="text"
-                value={data.slogan}
-                onChange={e => updateField('slogan', e.target.value)}
-                placeholder={isZh ? '一句话介绍自己' : 'One line about you'}
-                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
-                maxLength={60}
-              />
-              {aiSlogans.length > 0 && (
-                <div className="mt-3 p-4 rounded-xl bg-white border border-[#0071e3]/30 shadow-sm">
-                  <div className="text-xs font-medium mb-3 text-[#0071e3]">{isZh ? 'AI 推荐 (点击选择)' : 'AI Suggestions (click to use)'}</div>
-                  <div className="flex flex-col gap-2">
-                    {aiSlogans.map((s, i) => (
-                      <button type="button"
-                        key={i}
-                        onClick={() => updateField('slogan', s)}
-                        className={`text-left text-sm px-4 py-2.5 rounded-lg transition-all border ${data.slogan === s ? 'bg-[#0071e3] text-white border-[#0071e3] shadow-sm' : 'bg-[#f5f5f7] text-[#1d1d1f] border-transparent hover:bg-[#0071e3] hover:text-white'}`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {PRESET_SLOGANS_BY_CATEGORY[sloganCategory].map(s => (
-                  <button type="button"
-                    key={s}
-                    onClick={() => updateField('slogan', s)}
-                    className={`text-xs px-3 py-1.5 border rounded-full transition-colors ${data.slogan === s ? 'bg-[#0071e3] border-[#0071e3] text-white' : 'bg-white border-[#d2d2d7] text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div>
@@ -1905,6 +2017,13 @@ export default function CardEditor() {
               )}
             </div>
 
+            </div>
+            )}
+            </div>
+            )}
+
+            {/* ===== STEP 3: 导出分享 ===== */}
+            {step === 3 && (<>
             <div className="rounded-[24px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -1959,10 +2078,19 @@ export default function CardEditor() {
             <p className="text-xs text-[#86868b] mt-3">
               {isZh ? '导出后会给你一段可直接发朋友圈 / 小红书 / X 的文案。' : 'After export, you will get a caption ready for WeChat, Xiaohongshu, or X.'}
             </p>
+
+            {/* Step 3 back navigation */}
+            <div className="flex gap-3 mt-6">
+              <button type="button" onClick={() => setStep(step - 1)}
+                className="px-6 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold hover:bg-[#f5f5f7]">
+                {isZh ? '上一步' : 'Back'}
+              </button>
+            </div>
+            </>)}
           </div>
 
           {/* Right: Card Preview */}
-          <div className={`lg:sticky lg:top-24 lg:self-start relative min-w-0 ${isMobile && activeTab !== 'preview' ? 'hidden' : ''}`} ref={previewContainerRef}>
+          <div className={`lg:sticky lg:top-24 lg:self-start relative min-w-0 ${isMobile && step !== 3 ? 'hidden' : ''}`} ref={previewContainerRef}>
             <div className="rounded-[24px] border border-[#dbe4ff] bg-white/92 p-5 shadow-sm backdrop-blur mb-6">
               <div className="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '你将带走什么' : 'What you will export'}</div>
               <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
@@ -1997,7 +2125,7 @@ export default function CardEditor() {
               </div>
             </div>
 
-            {isMobile && activeTab === 'preview' && (
+            {isMobile && step === 3 && (
               <div className="mt-8 px-4">
                 <button type="button"
                   onClick={handleExport}
