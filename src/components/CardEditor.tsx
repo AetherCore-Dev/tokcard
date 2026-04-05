@@ -512,6 +512,44 @@ export default function CardEditor() {
     });
   }, []);
 
+  const KNOWN_SITES = {
+    'github.com': { icon: '🐙', name: 'GitHub' },
+    'twitter.com': { icon: '🐦', name: 'Twitter' },
+    'x.com': { icon: '𝕏', name: 'X' },
+    'linkedin.com': { icon: '💼', name: 'LinkedIn' },
+    'youtube.com': { icon: '▶️', name: 'YouTube' },
+    'bilibili.com': { icon: '📺', name: 'Bilibili' },
+    'zhihu.com': { icon: '🔵', name: '知乎' },
+    'xiaohongshu.com': { icon: '📕', name: '小红书' },
+    'juejin.cn': { icon: '💎', name: '掘金' },
+    'producthunt.com': { icon: '🚀', name: 'Product Hunt' },
+    'notion.so': { icon: '📓', name: 'Notion' },
+    'figma.com': { icon: '🎨', name: 'Figma' },
+    'vercel.app': { icon: '▲', name: 'Vercel' },
+    'netlify.app': { icon: '🌐', name: 'Netlify' },
+  };
+
+  const handleProjectUrlChange = useCallback((index: number, url: string) => {
+    updateProject(index, 'url', url);
+    if (url) {
+      try {
+        const hostname = new URL(url).hostname.replace('www.', '');
+        const match = Object.entries(KNOWN_SITES).find(([domain]) => hostname.includes(domain));
+        if (match) {
+          updateProject(index, 'icon', match[1].icon);
+          updateProject(index, 'name', match[1].name);
+        } else {
+          updateProject(index, 'icon', '🔗');
+          updateProject(index, 'name', hostname.split('.')[0]);
+        }
+      } catch (_e) { /* invalid URL */ }
+    }
+    // First link auto-syncs to QR code
+    if (index === 0) {
+      updateField('qrcodeUrl', url);
+    }
+  }, [updateProject, updateField]);
+
   const ensureProjectSlots = useMemo(
     () => Array.from({ length: FEATURED_PROJECT_LIMIT }, (_, index) => data.projects[index] ?? createEmptyProject(index)),
     [data.projects]
@@ -821,7 +859,7 @@ export default function CardEditor() {
 
     setProofFiles(files);
     setProofFeedback(files.length > 0
-      ? (isZh ? `已选择 ${files.length} 张截图，可标记为”截图佐证”。` : `${files.length} screenshot(s) selected. You can now mark the card as proof attached.`)
+      ? (isZh ? `已选择 ${files.length} 张截图，可标记为"截图佐证"。` : `${files.length} screenshot(s) selected. You can now mark the card as proof attached.`)
       : null);
   }, [isZh]);
 
@@ -836,7 +874,7 @@ export default function CardEditor() {
       trustTier: 'screenshot-backed',
       importedAt: new Date().toISOString(),
     }));
-    setProofFeedback(isZh ? '这张卡已升级为“截图佐证”，分享时会带上可信标签。' : 'This card is now marked as proof attached and will carry a trust label when shared.');
+    setProofFeedback(isZh ? '这张卡已升级为"截图佐证"，分享时会带上可信标签。' : 'This card is now marked as proof attached and will carry a trust label when shared.');
   }, [isZh, proofFiles.length]);
 
   const handleImportUsageRecord = useCallback(() => {
@@ -866,7 +904,7 @@ export default function CardEditor() {
     }));
     setTokenInput(nextTotalTokens.toLocaleString());
     setProofFeedback(isZh
-      ? `已按导入记录更新为 ${nextTotalTokens.toLocaleString()} token，并切换到“数据导入”状态。`
+      ? `已按导入记录更新为 ${nextTotalTokens.toLocaleString()} token，并切换到"数据导入"状态。`
       : `Updated the card to ${nextTotalTokens.toLocaleString()} tokens and switched it to usage-imported status.`);
   }, [data.lastMonthTokens, data.totalTokens, isZh, usageImportText]);
 
@@ -880,7 +918,7 @@ export default function CardEditor() {
     }));
     setProofFiles([]);
     setUsageImportText('');
-    setProofFeedback(isZh ? '已恢复为默认的“用户填写”状态。' : 'Reverted the card to self-reported status.');
+    setProofFeedback(isZh ? '已恢复为默认的"用户填写"状态。' : 'Reverted the card to self-reported status.');
   }, [isZh]);
 
   const downloadViaLink = useCallback((url: string, filename: string) => {
@@ -1299,17 +1337,20 @@ export default function CardEditor() {
                 {isZh ? '晒图平台' : 'Share Target'}
               </label>
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-                {(Object.entries(PLATFORMS) as [keyof typeof PLATFORMS, typeof PLATFORMS[keyof typeof PLATFORMS]][]).map(([key, item]) => (
+                {Object.entries(PLATFORMS).map(([key, item]) => {
+                  const p = item as any;
+                  return (
                   <button
                     type="button"
                     key={key}
                     onClick={() => updateField('platform', key)}
                     className={`p-3 rounded-xl border text-left transition-all ${data.platform === key ? 'border-[#0071e3] bg-[#0071e3]/5 ring-4 ring-[#0071e3]/10' : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'}`}
                   >
-                    <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? item.labelZh : item.label}</div>
-                    <div className="mt-1 text-xs text-[#86868b]">{item.ratio} · {item.width}×{item.height}</div>
+                    <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? p.labelZh : p.label}</div>
+                    <div className="mt-1 text-xs text-[#86868b]">{p.ratio} · {p.width}×{p.height}</div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
               <p className="mt-2 text-xs text-[#86868b]">
                 {isZh ? '切到目标平台后，预览和导出会按对应比例居中排版。' : 'Preview and export will fit the selected platform ratio.'}
@@ -1331,28 +1372,34 @@ export default function CardEditor() {
                 </button>
               </div>
               <div className="mb-3 flex flex-wrap gap-2">
-                {(Object.entries(SLOGAN_MODE_LABELS) as [keyof typeof SLOGAN_MODE_LABELS, { zh: string; en: string }][]).map(([key, label]) => (
+                {Object.entries(SLOGAN_MODE_LABELS).map(([key, label]) => {
+                  const l = label as any;
+                  return (
                   <button
                     type="button"
                     key={key}
                     onClick={() => setSloganMode(key)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${sloganMode === key ? 'bg-[#0071e3] text-white' : 'bg-[#eef4ff] text-[#1d1d1f] hover:bg-[#dce9ff]'}`}
                   >
-                    {isZh ? label.zh : label.en}
+                    {isZh ? l.zh : l.en}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               <div className="mb-3 flex flex-wrap gap-2">
-                {(Object.entries(SLOGAN_CATEGORY_LABELS) as [keyof typeof PRESET_SLOGANS_BY_CATEGORY, { zh: string; en: string }][]).map(([key, label]) => (
+                {Object.entries(SLOGAN_CATEGORY_LABELS).map(([key, label]) => {
+                  const l = label as any;
+                  return (
                   <button
                     type="button"
                     key={key}
                     onClick={() => setSloganCategory(key)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${sloganCategory === key ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
                   >
-                    {isZh ? label.zh : label.en}
+                    {isZh ? l.zh : l.en}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               <input
                 type="text"
@@ -1734,83 +1781,56 @@ export default function CardEditor() {
                 </>
               )}
               <div className="flex flex-wrap gap-2">
-                {(Object.entries(METAPHOR_CATEGORY_LABELS) as [MetaphorCategory, { zh: string; en: string }][]).map(([key, label]) => (
+                {Object.entries(METAPHOR_CATEGORY_LABELS).map(([key, label]) => {
+                  const l = label as any;
+                  return (
                   <button type="button"
                     key={key}
                     onClick={() => handleMetaphorCategoryChange(key)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${data.metaphorCategory === key ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
                   >
-                    {isZh ? label.zh : label.en}
+                    {isZh ? l.zh : l.en}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '精选项目名片' : 'Featured projects'}
+                {isZh ? '我的链接' : 'My links'}
               </label>
-              <div className="mb-3 text-xs text-[#94a3b8]">
-                {isZh ? '示例: 🐙 GitHub https://github.com/xxx · 🌐 我的博客 https://blog.xxx.com' : 'Example: 🐙 GitHub https://github.com/xxx · 🌐 My Blog https://blog.xxx.com'}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  updateProject(0, 'icon', '🐙');
-                  updateProject(0, 'name', 'GitHub');
-                  updateProject(0, 'url', 'https://github.com');
-                }}
-                className="mt-2 text-xs font-medium text-[#0071e3] hover:underline"
-              >
-                {isZh ? '一键填入示例' : 'Fill example'}
-              </button>
-              <div className="space-y-3">
+              <p className="text-xs text-[#94a3b8] mb-3">
+                {isZh ? '粘贴链接即可，系统自动识别图标和名称。第一个链接会生成卡片上的二维码。' : 'Just paste URLs — icons and names are auto-detected. The first link becomes the QR code on your card.'}
+              </p>
+              <div className="space-y-2">
                 {ensureProjectSlots.map((project, index) => (
-                  <div key={project.id} className="grid gap-3 md:grid-cols-[84px_minmax(0,1fr)_minmax(0,1.4fr)]">
-                    <input
-                      type="text"
-                      value={project.icon}
-                      onChange={e => updateProject(index, 'icon', e.target.value)}
-                      placeholder='🐙'
-                      className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                    />
-                    <input
-                      type="text"
-                      value={project.name}
-                      onChange={e => updateProject(index, 'name', e.target.value)}
-                      placeholder={isZh ? '如: GitHub / 我的博客' : 'e.g. GitHub / My Blog'}
-                      className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                    />
+                  <div key={project.id} className="flex items-center gap-2">
+                    <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f5f5f7] text-sm flex-shrink-0">
+                      {project.icon || '🔗'}
+                    </span>
                     <input
                       type="url"
                       value={project.url}
-                      onChange={e => updateProject(index, 'url', e.target.value)}
-                      placeholder="https://github.com/your-name"
-                      className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                      onChange={e => handleProjectUrlChange(index, e.target.value)}
+                      placeholder={index === 0
+                        ? (isZh ? '粘贴你最重要的链接（如 GitHub）' : 'Paste your main link (e.g. GitHub)')
+                        : (isZh ? '再加一个（选填）' : 'Add another (optional)')
+                      }
+                      className="flex-1 px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all text-sm"
                     />
+                    {project.name && (
+                      <span className="text-xs text-[#64748b] font-medium flex-shrink-0 hidden sm:inline">{project.name}</span>
+                    )}
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-[#86868b]">
-                {isZh ? '最多 3 个项目，会显示在卡片底部，强化“名片感”。' : 'Up to 3 projects shown in the footer as your business-card proof.'}
-              </p>
-            </div>
-
-            {/* QR code */}
-            <div>
-              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '二维码链接' : 'QR Code Link'}
-              </label>
-              <input
-                type="url"
-                value={data.qrcodeUrl}
-                onChange={e => updateField('qrcodeUrl', e.target.value)}
-                placeholder={isZh ? '例如：https://github.com/yourname' : 'e.g. https://github.com/yourname'}
-                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
-              />
-              <p className="mt-2 text-xs text-[#86868b]">
-                {isZh ? '可放 GitHub、个人主页或项目链接。扫码会先展示你的 TokCard，再一键前往这个链接。留空则不显示二维码。' : 'Add GitHub, portfolio, or project link. Scanning opens your TokCard first, then sends visitors to this link in one tap. Leave empty to hide the QR code.'}
-              </p>
+              {ensureProjectSlots[0]?.url && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-[#94a3b8]">
+                  <span>📱</span>
+                  <span>{isZh ? '第一个链接会生成卡片右下角的二维码' : 'First link generates the QR code on your card'}</span>
+                </div>
+              )}
             </div>
 
             <div className="rounded-[24px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
@@ -1897,7 +1917,7 @@ export default function CardEditor() {
                     />
                     <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '上传 usage / 账单截图' : 'Upload usage or billing screenshots'}</div>
                     <p className="mt-2 text-xs leading-5 text-[#64748b]">
-                      {isZh ? '用于把卡片升级为“截图佐证”。当前版本不会把截图本身放进分享链接，只会带上可信标签、来源和日期范围。' : 'Use this to upgrade the card to proof attached. The screenshot itself stays local in this version; only the trust label, source, and date range travel with the shared card.'}
+                      {isZh ? '用于把卡片升级为"截图佐证"。当前版本不会把截图本身放进分享链接，只会带上可信标签、来源和日期范围。' : 'Use this to upgrade the card to proof attached. The screenshot itself stays local in this version; only the trust label, source, and date range travel with the shared card.'}
                     </p>
                     <button
                       type="button"
@@ -1927,9 +1947,12 @@ export default function CardEditor() {
                         className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
                       >
                         <option value="">{isZh ? '选择来源（可选）' : 'Choose source (optional)'}</option>
-                        {(Object.entries(PROOF_SOURCE_META) as [ProofSource, { label: string; labelZh: string }][]).map(([value, meta]) => (
-                          <option key={value} value={value}>{isZh ? meta.labelZh : meta.label}</option>
-                        ))}
+                        {Object.entries(PROOF_SOURCE_META).map(([value, meta]) => {
+                          const m = meta as any;
+                          return (
+                          <option key={value} value={value}>{isZh ? m.labelZh : m.label}</option>
+                          );
+                        })}
                       </select>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -1986,9 +2009,12 @@ export default function CardEditor() {
                         className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
                       >
                         <option value="">{isZh ? '自动识别或手动选择' : 'Auto-detect or select manually'}</option>
-                        {(Object.entries(PROOF_SOURCE_META) as [ProofSource, { label: string; labelZh: string }][]).map(([value, meta]) => (
-                          <option key={value} value={value}>{isZh ? meta.labelZh : meta.label}</option>
-                        ))}
+                        {Object.entries(PROOF_SOURCE_META).map(([value, meta]) => {
+                          const m = meta as any;
+                          return (
+                          <option key={value} value={value}>{isZh ? m.labelZh : m.label}</option>
+                          );
+                        })}
                       </select>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
