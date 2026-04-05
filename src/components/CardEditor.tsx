@@ -1252,8 +1252,8 @@ export default function CardEditor() {
               </div>
             </div>
 
-            {/* Step 1 navigation */}
-            <div className="flex gap-3 mt-6">
+            {/* Step 1 navigation — desktop only, mobile uses sticky bar */}
+            <div className="hidden lg:flex gap-3 mt-6">
               <button type="button" onClick={() => setStep(step + 1)}
                 className="flex-1 px-6 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20 hover:opacity-95">
                 {isZh ? '下一步' : 'Next'}
@@ -1391,8 +1391,8 @@ export default function CardEditor() {
               </div>
             </div>
 
-            {/* Step 2 navigation */}
-            <div className="flex gap-3 mt-6">
+            {/* Step 2 navigation — desktop only, mobile uses sticky bar */}
+            <div className="hidden lg:flex gap-3 mt-6">
               <button type="button" onClick={() => setStep(step - 1)}
                 className="px-6 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold hover:bg-[#f5f5f7]">
                 {isZh ? '上一步' : 'Back'}
@@ -2091,8 +2091,8 @@ export default function CardEditor() {
               {isZh ? '导出后会给你一段可直接发朋友圈 / 小红书 / X 的文案。' : 'After export, you will get a caption ready for WeChat, Xiaohongshu, or X.'}
             </p>
 
-            {/* Step 3 back navigation */}
-            <div className="flex gap-3 mt-6">
+            {/* Step 3 back navigation — desktop only, mobile uses sticky bar */}
+            <div className="hidden lg:flex gap-3 mt-6">
               <button type="button" onClick={() => setStep(step - 1)}
                 className="px-6 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold hover:bg-[#f5f5f7]">
                 {isZh ? '上一步' : 'Back'}
