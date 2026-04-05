@@ -78,7 +78,12 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
       return;
     }
 
-    QRCode.toDataURL(qrTarget, {
+    // Ensure URL has protocol for QR code scanners
+    const qrUrl = (qrTarget.startsWith('http://') || qrTarget.startsWith('https://'))
+      ? qrTarget
+      : `https://${qrTarget}`;
+
+    QRCode.toDataURL(qrUrl, {
       width: 512,
       margin: 1,
       color: qrColors,
@@ -584,7 +589,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
             }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, flexShrink: 0, lineHeight: 1 }}>{rankTier.badge}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, height: 12 * s, flexShrink: 0, lineHeight: 1, fontSize: 11 * s, overflow: 'hidden' }}>{rankTier.badge}</span>
               <span>{isZh ? rankTier.label : rankTier.labelEn}</span>
             </div>
           </div>
@@ -821,8 +826,9 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 <div style={{ fontSize: 10 * s, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em' }}>
                   {isZh ? '本月档位' : 'Tier'}
                 </div>
-                <div style={{ marginTop: 4 * s, fontSize: 16 * s, fontWeight: 900, color: rankTier.accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {rankTier.badge} {isZh ? rankTier.label : rankTier.labelEn}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 * s, marginTop: 4 * s, fontSize: 16 * s, fontWeight: 900, color: rankTier.accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ display: 'inline-flex', flexShrink: 0, fontSize: 14 * s, lineHeight: 1 }}>{rankTier.badge}</span>
+                  <span>{isZh ? rankTier.label : rankTier.labelEn}</span>
                 </div>
                 <div style={{ marginTop: 4 * s, fontSize: 9 * s, color: tc.textDim }}>
                   {growth > 0 ? `${growth > 999 ? '999+' : growth}% ${isZh ? '较上月' : 'vs last month'}` : rankingSignalDescription}
@@ -941,7 +947,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                     border: `1px solid ${tc.panelBorder}`,
                   }}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, flexShrink: 0, lineHeight: 1 }}>{achievement.icon}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, height: 12 * s, flexShrink: 0, lineHeight: 1, fontSize: 11 * s, overflow: 'hidden' }}>{achievement.icon}</span>
                   <span>{isZh ? achievement.label : achievement.labelEn}</span>
                 </span>
               ))}

@@ -529,7 +529,12 @@ export default function CardEditor() {
     'netlify.app': { icon: '🌐', name: 'Netlify' },
   };
 
-  const handleProjectUrlChange = useCallback((index: number, url: string) => {
+  const handleProjectUrlChange = useCallback((index: number, rawUrl: string) => {
+    // Auto-add https:// if user pastes a bare domain
+    let url = rawUrl.trim();
+    if (url && !url.startsWith('http://') && !url.startsWith('https://') && url.includes('.')) {
+      url = `https://${url}`;
+    }
     updateProject(index, 'url', url);
     if (url) {
       try {
@@ -2163,17 +2168,7 @@ export default function CardEditor() {
               </div>
             </div>
 
-            {isMobile && step === 3 && (
-              <div className="mt-8 px-4">
-                <button type="button"
-                  onClick={handleExport}
-                  disabled={isExporting || !isPreviewReady}
-                  className="w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99] shadow-md flex items-center justify-center gap-2 bg-[#0071e3] text-white"
-                >
-                  {isExporting ? (isZh ? '生成中...' : 'Generating...') : !isPreviewReady ? (isZh ? '图片同步中...' : 'Syncing images...') : (isZh ? '立即晒图' : 'Export for Social')}
-                </button>
-              </div>
-            )}
+            {/* Mobile step 3 export button — hidden, using sticky bottom bar instead */}
           </div>
         </div>
       </div>
