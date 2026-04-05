@@ -1,6 +1,7 @@
 import type { Handler } from '@cloudflare/workers-types';
 import { buildCorsHeaders, handleOptions, jsonResponse, validateOrigin } from '../lib/cors';
 import { checkRateLimit } from '../lib/rate-limit';
+import { buildLeaderboardEntry, upsertLeaderboard } from '../lib/leaderboard';
 
 const CARD_KEY_PREFIX = 'tokcard:card:';
 const CARD_TTL_SECONDS = 60 * 60 * 24 * 365; // 1 year
@@ -184,6 +185,17 @@ export const onRequest: Handler = async (context) => {
       await namespace.put(getCardKey(id), storedData, {
         expirationTtl: CARD_TTL_SECONDS,
       });
+
+      // Update leaderboard index (async, don't block response)
+      try {
+        const parsedStored = JSON.parse(storedData);
+        const leaderboardEntry = buildLeaderboardEntry(id, parsedStored);
+        if (leaderboardEntry) {
+          context.waitUntil(upsertLeaderboard(namespace, leaderboardEntry));
+        }
+      } catch (_e) {
+        // Leaderboard update failure should not affect card save
+      }
 
       return jsonResponse({ id, url: `/u/${id}` }, 201, requestOrigin);
     } catch (error) {
