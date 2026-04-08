@@ -24,6 +24,7 @@ import {
   sanitizeReferralCode,
 } from '@/lib/card';
 import { getAchievements, getGrowthPercentage } from '@/lib/achievements';
+import { FEATURED_REGIONS } from '@/lib/leaderboard';
 import { getMetaphor, METAPHOR_CATEGORY_LABELS, type MetaphorCategory } from '@/lib/metaphor';
 import { CARD_PRESETS } from '@/lib/presets';
 import { shareWithFallback } from '@/lib/share';
@@ -32,6 +33,7 @@ import { getRankTier } from '@/lib/titles';
 import CardRenderer from './CardRenderer';
 import SuccessAnimation from './SuccessAnimation';
 import { domToBlob } from 'modern-screenshot';
+import { validateUrl } from '@/lib/url';
 
 const SLOGAN_CATEGORY_LABELS = {
   flex: { zh: '炫耀', en: 'Flex' },
@@ -297,15 +299,15 @@ export default function CardEditor() {
   const [usageImportText, setUsageImportText] = useState('');
   const [proofFeedback, setProofFeedback] = useState<string | null>(null);
 
-  // Mobile detection and tab state
+  // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
-  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
 
   // Platform detection for download handling
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('desktop');
 
   // Container ref for responsive scaling
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const mobilePreviewInitializedRef = useRef(false);
   const [previewScale, setPreviewScale] = useState(0.72);
   const [isPreviewReady, setIsPreviewReady] = useState(true);
   const previewRenderId = 'tokcard-preview';
@@ -327,6 +329,13 @@ export default function CardEditor() {
     else if (isAndroid) setPlatform('android');
     else setPlatform('desktop');
   }, []);
+
+  useEffect(() => {
+    if (isMobile && !mobilePreviewInitializedRef.current) {
+      setStep(3);
+      mobilePreviewInitializedRef.current = true;
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     const preset = new URLSearchParams(window.location.search).get('p');
@@ -382,6 +391,7 @@ export default function CardEditor() {
   const achievements = useMemo(() => getAchievements(data), [data]);
   const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
   const normalizedProjects = useMemo(() => normalizeFeaturedProjects(data.projects), [data.projects]);
+  const validDestinationUrl = useMemo(() => validateUrl(data.qrcodeUrl.trim()), [data.qrcodeUrl]);
   const readinessItems = useMemo(() => ([
     {
       id: 'identity',
@@ -410,10 +420,10 @@ export default function CardEditor() {
     {
       id: 'share',
       label: isZh ? '分享承接' : 'Share flow',
-      done: Boolean(data.qrcodeUrl.trim()),
+      done: Boolean(validDestinationUrl),
       hint: isZh ? '添加主页/GitHub 链接' : 'Add destination link',
     },
-  ]), [data.qrcodeUrl, data.slogan, data.totalTokens, data.trustTier, data.username, isZh, normalizedProjects.length]);
+  ]), [data.slogan, data.totalTokens, data.trustTier, data.username, isZh, normalizedProjects.length, validDestinationUrl]);
   const readinessScore = useMemo(() => readinessItems.filter((item) => item.done).length, [readinessItems]);
   const trustTierLabel = useMemo(() => getTrustTierLabel(data.trustTier, data.locale), [data.locale, data.trustTier]);
   const trustTierDescription = useMemo(() => getTrustTierDescription(data.trustTier, data.locale), [data.locale, data.trustTier]);
@@ -423,6 +433,15 @@ export default function CardEditor() {
   ), [data.locale, data.proofSource]);
   const proofRangeLabel = useMemo(() => formatProofDateRange(data.proofDateRange, data.locale), [data.locale, data.proofDateRange]);
   const rankingDisplay = useMemo(() => getMaxRankingDisplay(data.trustTier), [data.trustTier]);
+  const exportIssues = useMemo(() => {
+    const issues: string[] = [];
+    if (!data.username.trim()) issues.push(isZh ? '请先填写用户名。' : 'Add a username first.');
+    if (!data.slogan.trim()) issues.push(isZh ? '请先写一句话签名。' : 'Add a slogan first.');
+    if (data.totalTokens <= 0) issues.push(isZh ? '请先填写有效的 Token 消耗量。' : 'Add a valid token amount first.');
+    if (!validDestinationUrl) issues.push(isZh ? '请至少添加一个有效的链接，用于生成二维码和分享跳转。' : 'Add at least one valid link for the QR code and share destination.');
+    return issues;
+  }, [data.qrcodeUrl, data.slogan, data.totalTokens, data.username, isZh, validDestinationUrl]);
+  const canExport = exportIssues.length === 0;
   const rankingSignalLabel = useMemo(() => getRankingSignalLabel(rankTier, data.trustTier, data.locale), [data.locale, data.trustTier, rankTier]);
   const rankingSignalDescription = useMemo(() => getRankingSignalDescription(rankTier, data.trustTier, data.locale), [data.locale, data.trustTier, rankTier]);
   const trustCopyParts = useMemo(() => buildTrustCopyParts({
@@ -1024,6 +1043,11 @@ export default function CardEditor() {
     const el = document.getElementById(exportRenderId);
     if (!el) return;
 
+    if (exportIssues.length > 0) {
+      alert(exportIssues.join(`\n`));
+      return;
+    }
+
     if (!isPreviewReady) {
       alert(isZh ? '图片仍在加载，请稍后再试。' : 'Images are still loading. Try again in a moment.');
       return;
@@ -1117,27 +1141,37 @@ export default function CardEditor() {
       setIsExporting(false);
       window.setTimeout(() => setExportProgress(0), 600);
     }
-  }, [buildShareCaption, data, isZh, downloadViaLink, exportRenderId, isPreviewReady, shareCaption, waitForImagesToSettle]);
+  }, [buildShareCaption, data, downloadViaLink, exportIssues, exportRenderId, isPreviewReady, isZh, shareCaption, waitForImagesToSettle]);
+
+  const showMobileSheet = isMobile && step !== 3;
 
   const mobileBottomBar = (
-    <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 px-4 pb-4 pt-2 bg-gradient-to-t from-[#fbfbfd] via-[#fbfbfd] to-transparent">
+    <div className="lg:hidden fixed inset-x-0 bottom-0 z-50 px-4 pt-2 bg-gradient-to-t from-[#fbfbfd] via-[#fbfbfd] to-transparent" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
       <div className="flex gap-2">
-        {step > 1 && (
-          <button type="button" onClick={() => setStep(step - 1)}
-            className="px-5 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold">
-            {isZh ? '上一步' : 'Back'}
-          </button>
-        )}
-        {step < 3 ? (
-          <button type="button" onClick={() => setStep(step + 1)}
-            className="flex-1 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20">
-            {step === 2 ? (isZh ? '预览并导出' : 'Preview & Export') : (isZh ? '下一步 →' : 'Next →')}
-          </button>
+        {step === 3 ? (
+          <>
+            <button type="button" onClick={() => setStep(1)}
+              className="px-5 py-3.5 rounded-xl border border-[#d2d2d7] bg-white text-[#1d1d1f] font-semibold">
+              {isZh ? '编辑内容' : 'Edit'}
+            </button>
+            <button type="button" onClick={handleExport} disabled={isExporting || !canExport || !isPreviewReady}
+              className="flex-1 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20 disabled:opacity-60">
+              {isExporting ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '立即出图' : 'Export Now')}
+            </button>
+          </>
         ) : (
-          <button type="button" onClick={handleExport} disabled={isExporting}
-            className="flex-1 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20 disabled:opacity-60">
-            {isExporting ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '立即出图' : 'Export Now')}
-          </button>
+          <>
+            {step > 1 && (
+              <button type="button" onClick={() => setStep(step - 1)}
+                className="px-5 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold bg-white">
+                {isZh ? '上一步' : 'Back'}
+              </button>
+            )}
+            <button type="button" onClick={() => setStep(step + 1)}
+              className="flex-1 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20">
+              {step === 2 ? (isZh ? '回到预览' : 'Back to Preview') : (isZh ? '下一步 →' : 'Next →')}
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -1163,12 +1197,39 @@ export default function CardEditor() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {isMobile && mobileBottomBar}
+        {showMobileSheet && (
+          <button
+            type="button"
+            aria-label={isZh ? '关闭编辑面板并返回预览' : 'Close editor and return to preview'}
+            onClick={() => setStep(3)}
+            className="lg:hidden fixed inset-0 z-[35] bg-[#0f172a]/28 backdrop-blur-[2px]"
+          />
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 xl:gap-12">
           {/* Left: Form */}
-          <div className={`space-y-8 min-w-0 ${isMobile && step === 3 ? 'hidden' : ''}`}>
+          <div className={`min-w-0 ${showMobileSheet ? 'fixed inset-x-0 bottom-0 z-40 max-h-[78vh] overflow-y-auto rounded-t-[28px] border border-[#dbe4ff] bg-[#fbfbfd] px-4 pt-4 pb-32 shadow-[0_-24px_80px_rgba(15,23,42,0.24)]' : 'hidden'} lg:block lg:space-y-8 lg:relative lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 lg:shadow-none`}>
+            {showMobileSheet && (
+              <div className="mb-4 lg:hidden">
+                <div className="mx-auto h-1.5 w-12 rounded-full bg-[#dbe4ff]" />
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '编辑卡片' : 'Edit card'}</div>
+                    <div className="mt-1 text-sm font-medium text-[#475569]">{step === 1 ? (isZh ? '身份与战绩' : 'Identity & usage') : (isZh ? '风格与表达' : 'Style & voice')}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="rounded-full border border-[#dbe4ff] bg-white px-4 py-2 text-sm font-medium text-[#475569]"
+                  >
+                    {isZh ? '回到预览' : 'Preview'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Step indicator */}
-            <div className="flex items-center gap-3 mb-6">
+            <div className={`${showMobileSheet ? 'lg:flex' : ''} flex items-center gap-3 mb-6`}>
               {[1, 2, 3].map((s) => (
                 <button key={s} type="button" onClick={() => setStep(s)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
@@ -1225,6 +1286,35 @@ export default function CardEditor() {
                 placeholder={isZh ? '你的名字或昵称' : 'Your name or handle'}
                 className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
               />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                  {isZh ? '地区 / 国家' : 'Region / Country'}
+                </label>
+                <select
+                  value={data.region || ''}
+                  onChange={e => updateField('region', e.target.value)}
+                  className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                >
+                  {FEATURED_REGIONS.map((item) => (
+                    <option key={item.value || 'all'} value={item.value}>{item.flag} {item.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                  {isZh ? '公司 / 组织' : 'Company / Org'}
+                </label>
+                <input
+                  type="text"
+                  value={data.company || ''}
+                  onChange={e => updateField('company', e.target.value)}
+                  placeholder={isZh ? '例如：TokCard / 独立开发者' : 'e.g. TokCard / Indie Builder'}
+                  className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                />
+              </div>
             </div>
 
             {/* Token amount */}
@@ -1836,6 +1926,11 @@ export default function CardEditor() {
                   <span>{isZh ? '第一个链接会生成卡片右下角的二维码' : 'First link generates the QR code on your card'}</span>
                 </div>
               )}
+              {data.qrcodeUrl.trim() && !validDestinationUrl && (
+                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                  {isZh ? '当前主链接不是有效的 http/https 地址，导出和分享前请修正。' : 'The main link is not a valid http/https URL. Fix it before exporting.'}
+                </div>
+              )}
             </div>
 
             <div className="rounded-[24px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
@@ -2087,6 +2182,15 @@ export default function CardEditor() {
               </div>
             </div>
 
+            {exportIssues.length > 0 && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <div className="font-semibold">{isZh ? '导出前还差这些内容：' : 'Before exporting, finish these items:'}</div>
+                <ul className="mt-2 list-disc pl-5 space-y-1 text-xs leading-5">
+                  {exportIssues.map((issue) => <li key={issue}>{issue}</li>)}
+                </ul>
+              </div>
+            )}
+
             {exportProgress > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs text-[#6b7280]">
@@ -2102,11 +2206,13 @@ export default function CardEditor() {
             {/* Export button */}
             <button type="button"
               onClick={handleExport}
-              disabled={isExporting || !isPreviewReady}
+              disabled={isExporting || !isPreviewReady || !canExport}
               className="w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99] shadow-md flex items-center justify-center gap-2 bg-[#0071e3] text-white"
             >
               {isExporting ? (
                 <>{isZh ? '生成中...' : 'Generating...'}</>
+              ) : !canExport ? (
+                <>{isZh ? '请先补齐必填项' : 'Complete required items first'}</>
               ) : !isPreviewReady ? (
                 <>{isZh ? '图片同步中...' : 'Syncing images...'}</>
               ) : (
@@ -2133,7 +2239,7 @@ export default function CardEditor() {
           </div>
 
           {/* Right: Card Preview */}
-          <div className={`lg:sticky lg:top-24 lg:self-start relative min-w-0 ${isMobile && step !== 3 ? 'hidden' : ''}`} ref={previewContainerRef}>
+          <div className={`lg:sticky lg:top-24 lg:self-start relative min-w-0`} ref={previewContainerRef}>
             <div className="rounded-[24px] border border-[#dbe4ff] bg-white/92 p-5 shadow-sm backdrop-blur mb-6">
               <div className="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '你将带走什么' : 'What you will export'}</div>
               <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
@@ -2146,6 +2252,11 @@ export default function CardEditor() {
               {isZh ? '实时预览' : 'Live Preview'}
               <span className="ml-2 text-xs opacity-70">{isZh ? platformInfo.labelZh : platformInfo.label} · {platformInfo.ratio}</span>
             </div>
+            {isMobile && step === 3 && (
+              <div className="mb-4 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-sm text-[#475569] text-center">
+                {isZh ? '手机端已切到预览优先模式，先看成片，再回去编辑。' : 'Preview-first mode is on for mobile. Review the card first, then jump back to edit.'}
+              </div>
+            )}
             <div className="flex justify-center overflow-hidden" ref={cardRef}>
               <div style={{ width: previewStageWidth * previewScale, height: previewStageHeight * previewScale }}>
                 <div

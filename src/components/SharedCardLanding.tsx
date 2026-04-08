@@ -4,12 +4,20 @@ import {
   buildCreateFromTemplateUrl,
   decodeSharedCardPayload,
   formatTokens,
-  PLATFORMS,
   type DecodedSharedCard,
 } from '@/lib/card';
 import { getAchievements } from '@/lib/achievements';
 import { fetchShareMetrics, getMetricsIdFromPayload, trackShareMetric, type ShareMetrics } from '@/lib/metrics';
+import { getRegionLabel } from '@/lib/leaderboard';
 import { getRankTier } from '@/lib/titles';
+
+interface RankSummary {
+  globalRank: number;
+  totalCards: number;
+  channelRank: number | null;
+  regionRank: number | null;
+  percentile: number;
+}
 
 function getLinkMeta(url: string) {
   try {
@@ -34,6 +42,9 @@ export default function SharedCardLanding() {
   const [encodedPayload, setEncodedPayload] = useState('');
   const [metricsId, setMetricsId] = useState('');
   const [metrics, setMetrics] = useState<ShareMetrics | null>(null);
+  const [cardId, setCardId] = useState('');
+  const [rankSummary, setRankSummary] = useState<RankSummary | null>(null);
+  const [cardScale, setCardScale] = useState(0.66);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -41,6 +52,10 @@ export default function SharedCardLanding() {
     // Try server-injected data first (from /u/abc123 short URL)
     const serverData = (window as unknown as { __TOKCARD_DATA__?: Record<string, unknown> }).__TOKCARD_DATA__;
     if (serverData && typeof serverData === 'object') {
+      const maybeId = typeof serverData._id === 'string' ? serverData._id : '';
+      if (maybeId) {
+        setCardId(maybeId);
+      }
       // Re-encode to base64url so decodeSharedCardPayload can parse it
       const jsonStr = JSON.stringify(serverData);
       const bytes = new TextEncoder().encode(jsonStr);
@@ -55,6 +70,11 @@ export default function SharedCardLanding() {
         setStatus('ready');
         return;
       }
+    }
+
+    const pathMatch = window.location.pathname.match(/^\/u\/([a-z0-9]{4,16})$/i);
+    if (pathMatch?.[1]) {
+      setCardId(pathMatch[1].toLowerCase());
     }
 
     // Fallback: legacy ?d= base64 URL parameter
@@ -158,6 +178,48 @@ export default function SharedCardLanding() {
     };
   }, [encodedPayload, metricsId, shared]);
 
+  useEffect(() => {
+    const updateScale = () => {
+      const viewportWidth = window.innerWidth;
+      const maxWidth = Math.min(380, viewportWidth - 56);
+      const nextScale = Math.min(0.75, maxWidth / 540);
+      setCardScale(Math.max(0.54, nextScale));
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!cardId) {
+      setRankSummary(null);
+      return;
+    }
+
+    void fetch(`/api/rank?id=${cardId}`)
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return res.json() as Promise<RankSummary>;
+      })
+      .then((payload) => {
+        if (!cancelled) {
+          setRankSummary(payload);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRankSummary(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cardId]);
+
   const isZh = shared?.card.locale !== 'en';
   const linkMeta = useMemo(() => (shared ? getLinkMeta(shared.targetUrl) : null), [shared]);
   const rankTier = useMemo(() => (shared ? getRankTier(shared.card.totalTokens) : null), [shared]);
@@ -169,23 +231,16 @@ export default function SharedCardLanding() {
   const createUrl = useMemo(() => (
     shared && origin ? buildCreateFromTemplateUrl(shared.card, origin) : '/create'
   ), [origin, shared]);
+  const topProject = featuredProjects[0];
+  const rankUrl = cardId ? `/rank?focus=${cardId}` : '/rank';
+  const companyRankUrl = shared?.card.company ? `/rank?company=${encodeURIComponent(shared.card.company)}` : '';
+  const regionRankUrl = shared?.card.region ? `/rank?region=${encodeURIComponent(shared.card.region)}` : '';
 
   const showToast = (message: string) => {
     setToastMessage(message);
     window.setTimeout(() => {
       setToastMessage((current) => (current === message ? null : current));
     }, 2200);
-  };
-
-  const handleCopyLink = async () => {
-    if (!shared) return;
-
-    try {
-      await navigator.clipboard.writeText(shared.targetUrl);
-      showToast(isZh ? '链接已复制，可在浏览器中打开' : 'Link copied. Open it in your browser if needed.');
-    } catch {
-      showToast(isZh ? '复制失败，请手动复制' : 'Copy failed. Please copy it manually.');
-    }
   };
 
   const handleShareCard = async () => {
@@ -278,7 +333,7 @@ export default function SharedCardLanding() {
         <section className="flex justify-center">
           <div className="w-full max-w-[380px] rounded-[36px] bg-white/70 p-3 shadow-[0_30px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl">
             <div className="flex justify-center overflow-hidden rounded-[30px] bg-[#eef2ff] px-3 py-4">
-              <CardRenderer data={shared.card} scale={0.66} renderId="shared-card-preview" />
+              <CardRenderer data={shared.card} scale={cardScale} renderId="shared-card-preview" />
             </div>
           </div>
         </section>
@@ -299,6 +354,32 @@ export default function SharedCardLanding() {
           )}
         </div>
 
+        {rankSummary && (
+          <div className="mt-5 rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '排名位置' : 'Ranking snapshot'}</div>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <MetricPill label={isZh ? '全球' : 'Global'} value={`#${rankSummary.globalRank}`} />
+              <MetricPill label={isZh ? '同渠道' : 'Channel'} value={rankSummary.channelRank ? `#${rankSummary.channelRank}` : '-'} />
+              <MetricPill label={isZh ? '同地区' : 'Region'} value={rankSummary.regionRank ? `#${rankSummary.regionRank}` : '-'} />
+              <MetricPill label={isZh ? '百分位' : 'Percentile'} value={`Top ${rankSummary.percentile}%`} />
+            </div>
+            {(shared.card.company || shared.card.region) && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {shared.card.company && companyRankUrl && (
+                  <a href={companyRankUrl} className="inline-flex min-h-10 items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-4 text-sm font-medium text-[#334155] hover:border-[#0071e3]">
+                    {isZh ? `查看 ${shared.card.company} 排行` : `See ${shared.card.company} ranking`}
+                  </a>
+                )}
+                {shared.card.region && regionRankUrl && (
+                  <a href={regionRankUrl} className="inline-flex min-h-10 items-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569] hover:border-[#0071e3]">
+                    {isZh ? `查看 ${getRegionLabel(shared.card.region)} 地区排行` : `See ${getRegionLabel(shared.card.region)} ranking`}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 3. Primary CTA */}
         <a
           href={createUrl}
@@ -309,19 +390,38 @@ export default function SharedCardLanding() {
         </a>
 
         {/* 4. Secondary CTA */}
-        <a
-          href={shared.targetUrl}
-          target="_blank"
-          rel="noreferrer"
-          onClick={() => { void handleTrackMetric('share:click_destination'); }}
-          className="mt-3 flex items-center justify-center w-full py-3.5 rounded-full border border-[#c7ddff] bg-[linear-gradient(135deg,#eef5ff_0%,#ffffff_100%)] font-semibold text-[#0f172a] shadow-sm shadow-[#0071e3]/10 hover:border-[#0071e3]"
-        >
-          {isZh ? '打开作者链接' : 'Open creator link'}
-        </a>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <a
+            href={shared.targetUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => { void handleTrackMetric('share:click_destination'); }}
+            className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#c7ddff] bg-[linear-gradient(135deg,#eef5ff_0%,#ffffff_100%)] font-semibold text-[#0f172a] shadow-sm shadow-[#0071e3]/10 hover:border-[#0071e3]"
+          >
+            {isZh ? '打开作者链接' : 'Open creator link'}
+          </a>
+          <a
+            href={rankUrl}
+            className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
+          >
+            {isZh ? '查看他的排行' : 'See ranking'}
+          </a>
+        </div>
+
+        {topProject && (
+          <a
+            href={topProject.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
+          >
+            {isZh ? `去看项目：${topProject.name}` : `Open project: ${topProject.name}`}
+          </a>
+        )}
 
         {/* 5. Projects section */}
         {featuredProjects.length > 0 && (
-          <div className="mt-6 rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
+          <div id="projects" className="mt-6 rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '项目发现区' : 'Project discovery'}</div>
@@ -378,7 +478,7 @@ export default function SharedCardLanding() {
       </div>
 
       {/* 7. Sticky bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4">
+      <div className="fixed inset-x-0 bottom-0 z-40 px-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-lg">
           <a
             href={createUrl}
@@ -402,5 +502,14 @@ export default function SharedCardLanding() {
         </div>
       )}
     </main>
+  );
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{label}</div>
+      <div className="mt-2 text-lg font-semibold text-[#111827]">{value}</div>
+    </div>
   );
 }

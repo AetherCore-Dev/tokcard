@@ -728,6 +728,35 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
           }} />
         </div>
 
+        {featuredProjects.length > 0 && (
+          <div style={{ display: 'flex', gap: 8 * s, flexWrap: 'wrap', marginTop: 14 * s }}>
+            {featuredProjects.map((project) => (
+              <span
+                key={project.id}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6 * s,
+                  padding: `${7 * s}px ${11 * s}px`,
+                  borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                  fontSize: 11 * s,
+                  fontWeight: 800,
+                  color: tc.textSecondary,
+                  background: tc.panelBg,
+                  border: `1px solid ${tc.panelBorder}`,
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04)`,
+                  maxWidth: 180 * s,
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14 * s, flexShrink: 0, lineHeight: 1 }}>{project.icon || '✨'}</span>
+                {project.displayType !== 'icon' && (
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* == MAIN BODY == */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 * s, padding: `${10 * s}px 0` }}>
 
@@ -1044,34 +1073,6 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             {/* Left: branding */}
             <div style={{ maxWidth: qrDataUrl ? '72%' : '100%' }}>
-              {featuredProjects.length > 0 && (
-                <div style={{ display: 'flex', gap: 6 * s, flexWrap: 'wrap', marginBottom: 12 * s }}>
-                  {featuredProjects.map((project) => (
-                    <span
-                      key={project.id}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5 * s,
-                        padding: `${5 * s}px ${9 * s}px`,
-                        borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
-                        fontSize: 10 * s,
-                        fontWeight: 700,
-                        color: tc.textSecondary,
-                        background: `${tc.panelBg}`,
-                        border: `1px solid ${tc.panelBorder}`,
-                        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04)`,
-                        maxWidth: 150 * s,
-                      }}
-                    >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12 * s, flexShrink: 0, lineHeight: 1 }}>{project.icon || '✨'}</span>
-                      {project.displayType !== 'icon' && (
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
               <div style={{ fontSize: 9 * s, color: tc.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 4 * s }}>
                 {isZh ? '可传播个人名片' : 'Share-ready identity card'}
               </div>

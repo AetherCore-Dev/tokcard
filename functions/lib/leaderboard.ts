@@ -1,6 +1,8 @@
 const LEADERBOARD_KEY = 'tokcard:leaderboard:v1';
+const LEADERBOARD_ENTRY_PREFIX = 'tokcard:leaderboard:entry:';
 const MAX_ENTRIES = 200;
 const MIN_TOKENS = 1;
+const DEFAULT_ENTRY_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 export interface LeaderboardEntry {
   id: string;
@@ -14,6 +16,8 @@ export interface LeaderboardEntry {
   topModel: string;
   rankTierId: string;
   createdAt: string;
+  region?: string;
+  company?: string;
 }
 
 export interface LeaderboardIndex {
@@ -21,6 +25,21 @@ export interface LeaderboardIndex {
   updatedAt: string;
   total: number;
   entries: LeaderboardEntry[];
+}
+
+export interface LeaderboardFilters {
+  region?: string;
+  company?: string;
+  time?: 'week' | 'month' | 'all';
+  channel?: string;
+}
+
+export interface RankSummary {
+  globalRank: number;
+  totalCards: number;
+  channelRank: number | null;
+  regionRank: number | null;
+  percentile: number;
 }
 
 function computeRankTierId(tokens: number): string {
@@ -33,16 +52,176 @@ function computeRankTierId(tokens: number): string {
   return 'starter';
 }
 
-export async function readLeaderboard(kv: KVNamespace): Promise<LeaderboardIndex> {
+function emptyLeaderboard(): LeaderboardIndex {
+  return { version: 1, updatedAt: new Date().toISOString(), total: 0, entries: [] };
+}
+
+function normalizeRegion(value?: string): string | undefined {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 2);
+  return normalized || undefined;
+}
+
+function normalizeCompany(value?: string): string | undefined {
+  const normalized = String(value ?? '').trim().replace(/\s+/g, ' ').slice(0, 64);
+  return normalized || undefined;
+}
+
+function normalizeTime(value?: string): 'week' | 'month' | 'all' {
+  return value === 'week' || value === 'month' ? value : 'all';
+}
+
+function getTimeThreshold(time: 'week' | 'month' | 'all'): number | null {
+  if (time === 'all') return null;
+  const now = Date.now();
+  const days = time === 'week' ? 7 : 30;
+  return now - days * 24 * 60 * 60 * 1000;
+}
+
+function matchesFilters(entry: LeaderboardEntry, filters: LeaderboardFilters): boolean {
+  if (filters.channel && filters.channel !== 'all' && entry.channel !== filters.channel) {
+    return false;
+  }
+
+  const region = normalizeRegion(filters.region);
+  if (region && normalizeRegion(entry.region) !== region) {
+    return false;
+  }
+
+  const company = normalizeCompany(filters.company)?.toLowerCase();
+  if (company && normalizeCompany(entry.company)?.toLowerCase() !== company) {
+    return false;
+  }
+
+  const threshold = getTimeThreshold(normalizeTime(filters.time));
+  if (threshold) {
+    const createdAt = new Date(entry.createdAt).getTime();
+    if (Number.isNaN(createdAt) || createdAt < threshold) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getLeaderboardEntryKey(id: string): string {
+  return `${LEADERBOARD_ENTRY_PREFIX}${id}`;
+}
+
+function sanitizeLeaderboardEntry(raw: Partial<LeaderboardEntry> | null | undefined): LeaderboardEntry | null {
+  if (!raw) return null;
+
+  const id = String(raw.id ?? '').trim().toLowerCase();
+  if (!/^[a-z0-9]{4,16}$/.test(id)) return null;
+
+  const totalTokens = Number(raw.totalTokens ?? 0);
+  if (!Number.isFinite(totalTokens) || totalTokens < MIN_TOKENS) return null;
+
+  return {
+    id,
+    username: String(raw.username ?? '').slice(0, 64),
+    totalTokens,
+    channel: String(raw.channel ?? 'other').slice(0, 16),
+    avatarType: String(raw.avatarType ?? 'emoji').slice(0, 16),
+    avatarValue: String(raw.avatarValue ?? '🤖').slice(0, 256),
+    theme: String(raw.theme ?? 'brand-light').slice(0, 32),
+    projectCount: Math.max(0, Math.min(999, Number(raw.projectCount ?? 0) || 0)),
+    topModel: String(raw.topModel ?? '').slice(0, 32),
+    rankTierId: computeRankTierId(totalTokens),
+    createdAt: String(raw.createdAt ?? new Date().toISOString()),
+    region: normalizeRegion(raw.region),
+    company: normalizeCompany(raw.company),
+  };
+}
+
+function buildLeaderboardIndex(entries: LeaderboardEntry[]): LeaderboardIndex {
+  const deduped = new Map<string, LeaderboardEntry>();
+  entries.forEach((entry) => {
+    deduped.set(entry.id, entry);
+  });
+
+  const sorted = [...deduped.values()]
+    .sort((a, b) => b.totalTokens - a.totalTokens || b.createdAt.localeCompare(a.createdAt))
+    .slice(0, MAX_ENTRIES);
+
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    total: sorted.length,
+    entries: sorted,
+  };
+}
+
+async function readLegacyLeaderboardEntries(kv: KVNamespace): Promise<LeaderboardEntry[]> {
   const raw = await kv.get(LEADERBOARD_KEY);
-  if (!raw) {
-    return { version: 1, updatedAt: new Date().toISOString(), total: 0, entries: [] };
-  }
+  if (!raw) return [];
+
   try {
-    return JSON.parse(raw) as LeaderboardIndex;
+    const parsed = JSON.parse(raw) as Partial<LeaderboardIndex>;
+    if (!Array.isArray(parsed.entries)) return [];
+    return parsed.entries
+      .map((entry) => sanitizeLeaderboardEntry(entry as Partial<LeaderboardEntry>))
+      .filter((entry): entry is LeaderboardEntry => Boolean(entry));
   } catch {
-    return { version: 1, updatedAt: new Date().toISOString(), total: 0, entries: [] };
+    return [];
   }
+}
+
+async function readStoredLeaderboardEntries(kv: KVNamespace): Promise<LeaderboardEntry[]> {
+  const entries: LeaderboardEntry[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await kv.list({ prefix: LEADERBOARD_ENTRY_PREFIX, cursor });
+    const values = await Promise.all(page.keys.map((key) => kv.get(key.name)));
+
+    values.forEach((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as Partial<LeaderboardEntry>;
+        const entry = sanitizeLeaderboardEntry(parsed);
+        if (entry) {
+          entries.push(entry);
+        }
+      } catch {
+        // Ignore malformed leaderboard entry records
+      }
+    });
+
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return entries;
+}
+
+export async function readLeaderboard(kv: KVNamespace): Promise<LeaderboardIndex> {
+  const [legacyEntries, storedEntries] = await Promise.all([
+    readLegacyLeaderboardEntries(kv),
+    readStoredLeaderboardEntries(kv),
+  ]);
+
+  if (legacyEntries.length === 0 && storedEntries.length === 0) {
+    return emptyLeaderboard();
+  }
+
+  return buildLeaderboardIndex([...legacyEntries, ...storedEntries]);
+}
+
+export async function readFilteredLeaderboard(
+  kv: KVNamespace,
+  filters: LeaderboardFilters
+): Promise<LeaderboardIndex> {
+  const index = await readLeaderboard(kv);
+  const entries = index.entries.filter((entry) => matchesFilters(entry, filters));
+  return {
+    version: 1,
+    updatedAt: index.updatedAt,
+    total: entries.length,
+    entries,
+  };
 }
 
 export function buildLeaderboardEntry(
@@ -51,6 +230,10 @@ export function buildLeaderboardEntry(
 ): LeaderboardEntry | null {
   const totalTokens = Number(card.t ?? 0);
   if (totalTokens < MIN_TOKENS) return null;
+
+  // Self-reported cards are excluded from the public leaderboard
+  const trustTier = String(card.tr ?? 'self-reported');
+  if (trustTier === 'self-reported') return null;
 
   const models = Array.isArray(card.mb) ? card.mb : [];
   const projects = Array.isArray(card.pr) ? card.pr : [];
@@ -67,27 +250,45 @@ export function buildLeaderboardEntry(
     projectCount: projects.length,
     topModel,
     rankTierId: computeRankTierId(totalTokens),
-    createdAt: String(card._createdAt ?? new Date().toISOString()),
+    createdAt: String(card.ca ?? card._createdAt ?? new Date().toISOString()),
+    region: normalizeRegion(String(card.reg ?? '')),
+    company: normalizeCompany(String(card.org ?? '')),
   };
 }
 
 export async function upsertLeaderboard(
   kv: KVNamespace,
-  entry: LeaderboardEntry
+  entry: LeaderboardEntry,
+  expirationTtl = DEFAULT_ENTRY_TTL_SECONDS
 ): Promise<void> {
+  await kv.put(getLeaderboardEntryKey(entry.id), JSON.stringify(entry), {
+    expirationTtl,
+  });
+}
+
+function getRank(entries: LeaderboardEntry[], id: string): number | null {
+  const index = entries.findIndex((entry) => entry.id === id);
+  return index === -1 ? null : index + 1;
+}
+
+export async function getRankSummary(kv: KVNamespace, id: string): Promise<RankSummary | null> {
   const index = await readLeaderboard(kv);
+  const entry = index.entries.find((item) => item.id === id);
+  if (!entry) return null;
 
-  const filtered = index.entries.filter((e) => e.id !== entry.id);
-  const updated = [...filtered, entry]
-    .sort((a, b) => b.totalTokens - a.totalTokens)
-    .slice(0, MAX_ENTRIES);
+  const globalRank = getRank(index.entries, id);
+  if (!globalRank) return null;
 
-  const newIndex: LeaderboardIndex = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    total: updated.length,
-    entries: updated,
+  const channelEntries = index.entries.filter((item) => item.channel === entry.channel);
+  const regionEntries = entry.region
+    ? index.entries.filter((item) => normalizeRegion(item.region) === entry.region)
+    : [];
+
+  return {
+    globalRank,
+    totalCards: index.entries.length,
+    channelRank: getRank(channelEntries, id),
+    regionRank: regionEntries.length > 0 ? getRank(regionEntries, id) : null,
+    percentile: Math.max(1, Math.round((globalRank / Math.max(index.entries.length, 1)) * 100)),
   };
-
-  await kv.put(LEADERBOARD_KEY, JSON.stringify(newIndex));
 }

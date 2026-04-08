@@ -79,9 +79,11 @@ function buildSafeCardPayload(raw: Record<string, unknown>, id: string): string 
       }))
     : [];
 
+  const createdAt = safeString(raw.ca, 32) || new Date().toISOString();
+
   return JSON.stringify({
     _id: id,
-    _createdAt: new Date().toISOString(),
+    _createdAt: createdAt,
     v: 1,
     u: safeString(raw.u, 64),
     at: safeString(raw.at, 16),
@@ -91,6 +93,9 @@ function buildSafeCardPayload(raw: Record<string, unknown>, id: string): string 
     t: safeNumber(raw.t),
     lt: safeNumber(raw.lt),
     c: safeString(raw.c, 16),
+    reg: safeString(raw.reg, 2).toUpperCase(),
+    org: safeString(raw.org, 64),
+    ca: createdAt,
     th: safeString(raw.th, 32),
     bgT: safeString(raw.bgT, 16),
     bgV: safeString(raw.bgV, 256),
@@ -191,7 +196,7 @@ export const onRequest: Handler = async (context) => {
         const parsedStored = JSON.parse(storedData);
         const leaderboardEntry = buildLeaderboardEntry(id, parsedStored);
         if (leaderboardEntry) {
-          context.waitUntil(upsertLeaderboard(namespace, leaderboardEntry));
+          context.waitUntil(upsertLeaderboard(namespace, leaderboardEntry, CARD_TTL_SECONDS));
         }
       } catch (_e) {
         // Leaderboard update failure should not affect card save

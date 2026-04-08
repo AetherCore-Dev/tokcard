@@ -27,6 +27,9 @@ export interface CardData {
   totalTokens: number;
   lastMonthTokens: number;
   channel: 'claude' | 'gpt' | 'cursor' | 'deepseek' | 'gemini' | 'other';
+  region?: string;
+  company?: string;
+  createdAt?: string;
   theme:
     | 'brand-dark'
     | 'brand-light'
@@ -80,6 +83,9 @@ interface SharedCardPayloadV1 {
   t: number;
   lt?: number;
   c: CardData['channel'];
+  reg?: string;
+  org?: string;
+  ca?: string;
   th: CardData['theme'];
   bgT: CardData['backgroundType'];
   bgV: string;
@@ -102,6 +108,8 @@ interface CardTemplatePresetV1 {
   at: CardData['avatarType'];
   av: string;
   c: CardData['channel'];
+  reg?: string;
+  org?: string;
   th: CardData['theme'];
   bgT: CardData['backgroundType'];
   bgV: string;
@@ -323,6 +331,9 @@ export const DEFAULT_CARD_DATA: CardData = {
   totalTokens: 0,
   lastMonthTokens: 0,
   channel: 'claude',
+  region: '',
+  company: '',
+  createdAt: undefined,
   theme: 'brand-light',
   backgroundType: 'none',
   backgroundValue: '',
@@ -418,6 +429,21 @@ export function sanitizeReferralCode(value: string): string {
     .slice(0, 32);
 }
 
+export function normalizeRegion(value?: string): string {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 2);
+}
+
+export function normalizeCompany(value?: string): string {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 64);
+}
+
 export function normalizeFeaturedProjects(projects: FeaturedProject[]): FeaturedProject[] {
   return projects
     .slice(0, FEATURED_PROJECT_LIMIT)
@@ -506,6 +532,9 @@ export function encodeSharedCardPayload(data: CardData): string | null {
     t: data.totalTokens,
     lt: data.lastMonthTokens,
     c: data.channel,
+    reg: normalizeRegion(data.region),
+    org: normalizeCompany(data.company),
+    ca: data.createdAt,
     th: data.theme,
     bgT: background.backgroundType,
     bgV: background.backgroundValue,
@@ -569,6 +598,9 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         totalTokens: Math.max(0, Number(payload.t ?? 0)),
         lastMonthTokens: Math.max(0, Number(payload.lt ?? 0)),
         channel: payload.c ?? DEFAULT_CARD_DATA.channel,
+        region: normalizeRegion(payload.reg),
+        company: normalizeCompany(payload.org),
+        createdAt: payload.ca,
         theme: payload.th ?? DEFAULT_CARD_DATA.theme,
         backgroundType: validatedBackground.backgroundType,
         backgroundValue: validatedBackground.backgroundValue,
@@ -618,6 +650,8 @@ export function encodeCardTemplatePreset(data: CardData): string {
     at: avatar.avatarType,
     av: avatar.avatarValue,
     c: data.channel,
+    reg: normalizeRegion(data.region),
+    org: normalizeCompany(data.company),
     th: data.theme,
     bgT: background.backgroundType,
     bgV: background.backgroundValue,
@@ -660,6 +694,8 @@ export function decodeCardTemplatePreset(value: string): Partial<CardData> | nul
         preset.av ?? DEFAULT_CARD_DATA.avatarValue
       ),
       channel: preset.c ?? DEFAULT_CARD_DATA.channel,
+      region: normalizeRegion(preset.reg),
+      company: normalizeCompany(preset.org),
       theme: preset.th ?? DEFAULT_CARD_DATA.theme,
       backgroundType: validatedBg.backgroundType,
       backgroundValue: validatedBg.backgroundValue,

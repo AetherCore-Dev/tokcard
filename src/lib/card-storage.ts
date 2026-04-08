@@ -1,5 +1,5 @@
 import type { CardData, ModelBreakdown, FeaturedProject } from '@/lib/card';
-import { normalizeFeaturedProjects, sanitizeReferralCode } from '@/lib/card';
+import { normalizeCompany, normalizeFeaturedProjects, normalizeRegion, sanitizeReferralCode } from '@/lib/card';
 
 interface SaveCardResponse {
   id: string;
@@ -16,6 +16,9 @@ interface SharedCardPayloadForStorage {
   t: number;
   lt?: number;
   c: CardData['channel'];
+  reg?: string;
+  org?: string;
+  ca?: string;
   th: CardData['theme'];
   bgT: CardData['backgroundType'];
   bgV: string;
@@ -63,6 +66,9 @@ function buildPayloadForStorage(data: CardData): SharedCardPayloadForStorage {
     t: data.totalTokens,
     lt: data.lastMonthTokens,
     c: data.channel,
+    reg: normalizeRegion(data.region),
+    org: normalizeCompany(data.company),
+    ca: data.createdAt,
     th: data.theme,
     bgT: background.backgroundType,
     bgV: background.backgroundValue,
