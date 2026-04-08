@@ -1,5 +1,6 @@
 const LEADERBOARD_KEY = 'tokcard:leaderboard:v1';
 const LEADERBOARD_ENTRY_PREFIX = 'tokcard:leaderboard:entry:';
+const LEADERBOARD_MIGRATION_KEY = 'tokcard:leaderboard:migrated:v2';
 const MAX_ENTRIES = 200;
 const MIN_TOKENS = 1;
 const DEFAULT_ENTRY_TTL_SECONDS = 60 * 60 * 24 * 365;
@@ -170,6 +171,16 @@ async function readLegacyLeaderboardEntries(kv: KVNamespace): Promise<Leaderboar
   }
 }
 
+async function writeLeaderboardEntryRecord(
+  kv: KVNamespace,
+  entry: LeaderboardEntry,
+  expirationTtl = DEFAULT_ENTRY_TTL_SECONDS
+): Promise<void> {
+  await kv.put(getLeaderboardEntryKey(entry.id), JSON.stringify(entry), {
+    expirationTtl,
+  });
+}
+
 async function readStoredLeaderboardEntries(kv: KVNamespace): Promise<LeaderboardEntry[]> {
   const entries: LeaderboardEntry[] = [];
   let cursor: string | undefined;
@@ -197,17 +208,44 @@ async function readStoredLeaderboardEntries(kv: KVNamespace): Promise<Leaderboar
   return entries;
 }
 
+async function hasMigratedLeaderboard(kv: KVNamespace): Promise<boolean> {
+  return (await kv.get(LEADERBOARD_MIGRATION_KEY)) === '1';
+}
+
+async function migrateLegacyLeaderboardEntries(
+  kv: KVNamespace,
+  expirationTtl = DEFAULT_ENTRY_TTL_SECONDS
+): Promise<void> {
+  if (await hasMigratedLeaderboard(kv)) {
+    return;
+  }
+
+  const legacyEntries = await readLegacyLeaderboardEntries(kv);
+  if (legacyEntries.length > 0) {
+    await Promise.all(legacyEntries.map((entry) => writeLeaderboardEntryRecord(kv, entry, expirationTtl)));
+  }
+
+  await kv.put(LEADERBOARD_MIGRATION_KEY, '1');
+}
+
 export async function readLeaderboard(kv: KVNamespace): Promise<LeaderboardIndex> {
-  const [legacyEntries, storedEntries] = await Promise.all([
-    readLegacyLeaderboardEntries(kv),
+  const [migrated, storedEntries] = await Promise.all([
+    hasMigratedLeaderboard(kv),
     readStoredLeaderboardEntries(kv),
   ]);
 
+  if (migrated) {
+    return storedEntries.length > 0 ? buildLeaderboardIndex(storedEntries) : emptyLeaderboard();
+  }
+
+  const legacyEntries = await readLegacyLeaderboardEntries(kv);
   if (legacyEntries.length === 0 && storedEntries.length === 0) {
     return emptyLeaderboard();
   }
 
-  return buildLeaderboardIndex([...legacyEntries, ...storedEntries]);
+  const storedIds = new Set(storedEntries.map((entry) => entry.id));
+  const fallbackLegacyEntries = legacyEntries.filter((entry) => !storedIds.has(entry.id));
+  return buildLeaderboardIndex([...fallbackLegacyEntries, ...storedEntries]);
 }
 
 export async function readFilteredLeaderboard(
@@ -261,9 +299,8 @@ export async function upsertLeaderboard(
   entry: LeaderboardEntry,
   expirationTtl = DEFAULT_ENTRY_TTL_SECONDS
 ): Promise<void> {
-  await kv.put(getLeaderboardEntryKey(entry.id), JSON.stringify(entry), {
-    expirationTtl,
-  });
+  await migrateLegacyLeaderboardEntries(kv, expirationTtl);
+  await writeLeaderboardEntryRecord(kv, entry, expirationTtl);
 }
 
 function getRank(entries: LeaderboardEntry[], id: string): number | null {

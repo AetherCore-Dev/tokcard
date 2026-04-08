@@ -19,6 +19,22 @@ interface RankSummary {
   percentile: number;
 }
 
+function encodeStoredPayload(value: Record<string, unknown>): string {
+  const jsonStr = JSON.stringify(value);
+  const bytes = new TextEncoder().encode(jsonStr);
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function decodeStoredPayload(value: Record<string, unknown>) {
+  const encoded = encodeStoredPayload(value);
+  const decoded = decodeSharedCardPayload(encoded);
+  return decoded ? { encoded, decoded } : null;
+}
+
 function getLinkMeta(url: string) {
   try {
     const parsed = new URL(url);
@@ -47,53 +63,77 @@ export default function SharedCardLanding() {
   const [cardScale, setCardScale] = useState(0.66);
 
   useEffect(() => {
+    let cancelled = false;
     setOrigin(window.location.origin);
+
+    const hydrateSharedCard = (payload: Record<string, unknown>) => {
+      const hydrated = decodeStoredPayload(payload);
+      if (!hydrated) return false;
+
+      const maybeId = typeof payload._id === 'string' ? payload._id : '';
+      if (maybeId) {
+        setCardId(maybeId.toLowerCase());
+      }
+      setEncodedPayload(hydrated.encoded);
+      setShared(hydrated.decoded);
+      setStatus('ready');
+      return true;
+    };
 
     // Try server-injected data first (from /u/abc123 short URL)
     const serverData = (window as unknown as { __TOKCARD_DATA__?: Record<string, unknown> }).__TOKCARD_DATA__;
-    if (serverData && typeof serverData === 'object') {
-      const maybeId = typeof serverData._id === 'string' ? serverData._id : '';
-      if (maybeId) {
-        setCardId(maybeId);
-      }
-      // Re-encode to base64url so decodeSharedCardPayload can parse it
-      const jsonStr = JSON.stringify(serverData);
-      const bytes = new TextEncoder().encode(jsonStr);
-      let binary = '';
-      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-      const base64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    if (serverData && typeof serverData === 'object' && hydrateSharedCard(serverData)) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
-      const decoded = decodeSharedCardPayload(base64url);
+    // Legacy support: /u?d=<base64>
+    const searchParams = new URLSearchParams(window.location.search);
+    const encoded = searchParams.get('d');
+    if (encoded) {
+      const decoded = decodeSharedCardPayload(encoded);
       if (decoded) {
-        setEncodedPayload(base64url);
+        setEncodedPayload(encoded);
         setShared(decoded);
         setStatus('ready');
-        return;
+        return () => {
+          cancelled = true;
+        };
       }
     }
 
     const pathMatch = window.location.pathname.match(/^\/u\/([a-z0-9]{4,16})$/i);
-    if (pathMatch?.[1]) {
-      setCardId(pathMatch[1].toLowerCase());
+    const pathCardId = pathMatch?.[1]?.toLowerCase();
+    if (pathCardId) {
+      setCardId(pathCardId);
+      void fetch(`/api/cards?id=${pathCardId}`)
+        .then(async (res) => {
+          if (!res.ok) return null;
+          return res.json() as Promise<Record<string, unknown>>;
+        })
+        .then((payload) => {
+          if (cancelled) return;
+          if (payload && hydrateSharedCard(payload)) {
+            return;
+          }
+          setStatus('invalid');
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setStatus('invalid');
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
     }
 
-    // Fallback: legacy ?d= base64 URL parameter
-    const searchParams = new URLSearchParams(window.location.search);
-    const encoded = searchParams.get('d');
-    if (!encoded) {
-      setStatus('invalid');
-      return;
-    }
-
-    const decoded = decodeSharedCardPayload(encoded);
-    if (!decoded) {
-      setStatus('invalid');
-      return;
-    }
-
-    setEncodedPayload(encoded);
-    setShared(decoded);
-    setStatus('ready');
+    setStatus('invalid');
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
