@@ -1,3 +1,22 @@
 # Ralph Progress Log
 Started: Thu Apr  9 15:04:49     2026
 ---
+
+## Codebase Patterns
+- CardData interface defines all card properties including primary project fields (name, URL, pitch)
+- Shared card payloads use compressed field names (ppn, ppu, ppp) for primary project data
+- Template presets and shared links handle backward compatibility with empty defaults
+- All encoding/decoding functions preserve primary project identity fields
+
+## 2026-04-09 17:08 - US-001
+- Implemented primary project identity fields in CardData interface
+- Extended shared card payload encoding/decoding to include primary project fields
+- Updated template preset encoding/decoding for backward compatibility
+- Modified CardEditor and SharedCardLanding components to use primary project data
+- Files changed: src/lib/card.ts, src/components/CardEditor.tsx, src/components/SharedCardLanding.tsx, and related files
+- **Learnings for future iterations:**
+  - Primary project fields are stored separately from projects array for clear hierarchy
+  - Existing shared links without new fields decode safely with empty defaults
+  - TypeScript build system validates all interface changes automatically
+  - Card storage and leaderboard systems already handle the new fields correctly
+---
