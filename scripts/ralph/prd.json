@@ -31,8 +31,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed on 2026-04-09: Core fields displayed by default, advanced personalization collapsed by default"
     },
     {
       "id": "US-003",

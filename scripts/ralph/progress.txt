@@ -20,3 +20,14 @@ Started: Thu Apr  9 15:04:49     2026
   - TypeScript build system validates all interface changes automatically
   - Card storage and leaderboard systems already handle the new fields correctly
 ---
+
+## 2026-04-09 18:54 - US-002
+- Verified CardEditor structure already meets US-002 requirements
+- Core fields (total tokens, primary project name, URL, pitch) displayed by default in step 1
+- Advanced personalization (avatar, theme, background, metaphor, slogan, links) collapsed by default
+- Preview updates immediately when core fields change
+- **Learnings for future iterations:**
+  - Current implementation already follows the "token usage first, project identity second, ranking third" priority
+  - Advanced settings are properly organized in a collapsible section
+  - Build system validates all changes automatically
+---
