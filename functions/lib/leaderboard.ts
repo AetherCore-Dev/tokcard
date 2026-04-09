@@ -14,6 +14,11 @@ export interface LeaderboardEntry {
   avatarValue: string;
   theme: string;
   projectCount: number;
+  topProject?: {
+    name: string;
+    url: string;
+    icon: string;
+  };
   topModel: string;
   rankTierId: string;
   createdAt: string;
@@ -121,6 +126,12 @@ function sanitizeLeaderboardEntry(raw: Partial<LeaderboardEntry> | null | undefi
   const totalTokens = Number(raw.totalTokens ?? 0);
   if (!Number.isFinite(totalTokens) || totalTokens < MIN_TOKENS) return null;
 
+  const maybeTopProject = raw.topProject && typeof raw.topProject === 'object'
+    ? raw.topProject as { name?: unknown; url?: unknown; icon?: unknown }
+    : null;
+  const topProjectName = String(maybeTopProject?.name ?? '').trim().slice(0, 28);
+  const topProjectUrl = String(maybeTopProject?.url ?? '').trim();
+
   return {
     id,
     username: String(raw.username ?? '').slice(0, 64),
@@ -130,6 +141,13 @@ function sanitizeLeaderboardEntry(raw: Partial<LeaderboardEntry> | null | undefi
     avatarValue: String(raw.avatarValue ?? '🤖').slice(0, 256),
     theme: String(raw.theme ?? 'brand-light').slice(0, 32),
     projectCount: Math.max(0, Math.min(999, Number(raw.projectCount ?? 0) || 0)),
+    topProject: topProjectName && topProjectUrl
+      ? {
+          name: topProjectName,
+          url: topProjectUrl,
+          icon: String(maybeTopProject?.icon ?? '✨').trim().slice(0, 4) || '✨',
+        }
+      : undefined,
     topModel: String(raw.topModel ?? '').slice(0, 32),
     rankTierId: computeRankTierId(totalTokens),
     createdAt: String(raw.createdAt ?? new Date().toISOString()),
@@ -276,6 +294,10 @@ export function buildLeaderboardEntry(
   const models = Array.isArray(card.mb) ? card.mb : [];
   const projects = Array.isArray(card.pr) ? card.pr : [];
   const topModel = models.length > 0 ? String((models[0] as Record<string, unknown>).name ?? '') : '';
+  const topProject = projects.find((project) => {
+    const value = project as Record<string, unknown>;
+    return String(value.name ?? '').trim() && String(value.url ?? '').trim();
+  }) as Record<string, unknown> | undefined;
 
   return {
     id,
@@ -286,6 +308,13 @@ export function buildLeaderboardEntry(
     avatarValue: String(card.av ?? '🤖'),
     theme: String(card.th ?? 'brand-light'),
     projectCount: projects.length,
+    topProject: topProject
+      ? {
+          name: String(topProject.name ?? '').trim().slice(0, 28),
+          url: String(topProject.url ?? '').trim(),
+          icon: String(topProject.icon ?? '✨').trim().slice(0, 4) || '✨',
+        }
+      : undefined,
     topModel,
     rankTierId: computeRankTierId(totalTokens),
     createdAt: String(card.ca ?? card._createdAt ?? new Date().toISOString()),

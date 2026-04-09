@@ -1,0 +1,172 @@
+{
+  "project": "TokCard",
+  "branchName": "ralph/ux-redesign",
+  "description": "Refocus TokCard around three core questions: how many tokens you used, what project you are building, and where you rank. Simplify the editor, tighten AI copy, curate visuals, and make ranking and project identity much clearer.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add primary project identity to card data",
+      "description": "As a creator, I need one primary project name, URL, and one-line pitch to travel with the card, share page, and ranking views.",
+      "acceptanceCriteria": [
+        "Extend CardData with primary project name, primary project URL, and primary project pitch",
+        "Persist the new fields through share payload encoding/decoding, template preset encoding/decoding, and saved card payloads",
+        "Existing shared/template links without the new fields still decode safely with empty defaults",
+        "Keep the existing projects array for secondary links without breaking current behavior",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Restructure the editor around core information",
+      "description": "As a new user, I want the create page to show only the core card inputs first so I can finish a card without getting lost in settings.",
+      "acceptanceCriteria": [
+        "Show only total tokens, primary project name, primary project URL, and primary project pitch in the default above-the-fold editor area",
+        "Move avatar, theme, background, metaphor, secondary projects, and trust controls into a collapsed advanced personalization section",
+        "Keep advanced personalization collapsed by default on first load",
+        "Update the preview immediately when any core field changes",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Generate a one-line project pitch with AI",
+      "description": "As a creator, I want TokCard to generate a short, impressive one-line intro for my project from its URL or name.",
+      "acceptanceCriteria": [
+        "Add an AI generate action next to the primary project pitch field",
+        "Use project URL metadata as prompt context when available and fall back to the project name when metadata cannot be fetched",
+        "Return exactly 3 candidate pitches per generation",
+        "Keep each Chinese pitch at 24 characters or fewer and each English pitch at 12 words or fewer",
+        "Generated pitches emphasize user value, speed, scale, ambition, or results instead of generic filler",
+        "Allow users to apply one candidate, regenerate, or manually edit the final pitch",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Tighten AI slogan, metaphor, and caption output",
+      "description": "As a user, I want AI-generated slogans, metaphors, and viral copy to be short, punchy, and immediately usable.",
+      "acceptanceCriteria": [
+        "Limit slogan generation to 3 candidates per request",
+        "Keep each Chinese slogan at 12 characters or fewer and each English slogan at 15 words or fewer",
+        "Limit metaphor generation to 3 candidates per request and keep each Chinese metaphor at 18 characters or fewer",
+        "Keep viral caption output compact with a short title, a short body, and no more than 2 hashtags",
+        "Use total tokens, primary project name, primary project pitch, and ranking signal as prompt context for AI copy generation",
+        "Reduce repetitive or template-like output across generated results",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Reduce card presets to four curated templates",
+      "description": "As a user, I want fewer but clearer card presets so I can choose a style quickly without decision fatigue.",
+      "acceptanceCriteria": [
+        "Reduce the visible CARD_PRESETS list to exactly 4 curated presets",
+        "Cover these 4 use cases with the curated presets: token flex, project launch, professional profile, and social sharing",
+        "Update preset names and descriptions so each preset clearly communicates when to use it",
+        "Ensure each preset defaults reinforce token usage, project identity, and ranking rather than extra decoration",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Replace busy backgrounds with curated color swatches",
+      "description": "As a user, I want the visual system to feel premium and calm, with curated solid and gradient backgrounds instead of busy images.",
+      "acceptanceCriteria": [
+        "Replace the current image-based preset backgrounds with exactly 8 curated solid or gradient swatches",
+        "Do not surface custom image background upload in the default creator flow",
+        "Reduce the visible theme selector to exactly 5 curated themes",
+        "Give each visible background and theme a human-friendly label",
+        "Ensure all curated theme/background combinations keep text readable in preview",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Reorder card and share page around token, project, and rank",
+      "description": "As a viewer, I want every TokCard and shared page to immediately tell me the token number, the main project, and the ranking signal in that order.",
+      "acceptanceCriteria": [
+        "Make total token usage the strongest visual element in CardRenderer",
+        "Show primary project name and primary project pitch directly on the card or its immediate summary area without requiring an extra click",
+        "Show rank, percentile, or tier signal as the third layer of emphasis after token and project",
+        "Keep secondary project links visible but visually lower priority than the main project identity",
+        "Update SharedCardLanding summaries and primary actions to follow the same token -> project -> rank order",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Show my ranking summary after create and on share page",
+      "description": "As a creator, I want quick feedback on where I rank so I can compare myself and jump into the leaderboard.",
+      "acceptanceCriteria": [
+        "For rank-eligible cards, show a ranking summary after export/share in the create flow",
+        "Include at least one of: global rank or percentile, plus the current rank tier",
+        "Add a CTA that opens the leaderboard focused on the current card when a card id exists",
+        "Keep the share page ranking summary visible without forcing the user to search again",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Turn the leaderboard into a project discovery view",
+      "description": "As a visitor, I want the leaderboard to show what top builders are making, not just how many tokens they used.",
+      "acceptanceCriteria": [
+        "Display rank, username, total tokens, primary project name, primary project pitch, and channel/model badge in leaderboard rows",
+        "Make the focused user more visually obvious when the page is opened with a focus query parameter",
+        "Highlight top performers or comparison targets without hiding the main ranked list",
+        "Reduce the visual prominence of secondary filters so the ranked rows remain the page focus",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Align the homepage and navigation to the core triad",
+      "description": "As a first-time visitor, I want the homepage and nav to clearly explain that TokCard is for showing token usage, project identity, and ranking.",
+      "acceptanceCriteria": [
+        "Update homepage headline and support copy to clearly express token usage, project identity, and ranking",
+        "Keep create-card as the primary CTA and leaderboard as the secondary CTA",
+        "Ensure showcase cards and feature blocks reinforce the same three-value story",
+        "Simplify navigation so secondary links do not compete with the primary actions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

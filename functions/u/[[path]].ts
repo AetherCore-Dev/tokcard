@@ -69,9 +69,14 @@ function injectOgMeta(html: string, card: StoredCard, cardId: string, requestUrl
   const tokens = formatTokens(Number(card.t || 0));
   const slogan = escapeHtml(String(card.s || 'AI builder card'));
   const rank = getRankBadge(Number(card.t || 0));
+  const isZh = card.lo !== 'en';
 
-  const ogTitle = `${username} 的 AI 战绩卡 · ${tokens} tokens`;
-  const ogDescription = `${rank} · ${slogan} — 查看 ${username} 的 AI 使用战绩，也生成你的同款卡片。`;
+  const ogTitle = isZh
+    ? `${username} 的 AI 战绩卡 · ${tokens} tokens`
+    : `${username}'s AI Card · ${tokens} tokens`;
+  const ogDescription = isZh
+    ? `${rank} · ${slogan} — 查看 ${username} 的 AI 使用战绩，也生成你的同款卡片。`
+    : `${rank} · ${slogan} — See ${username}'s AI stats and create your own card.`;
   const origin = new URL(requestUrl).origin;
   const ogImage = `${origin}/api/og-image?id=${cardId}`;
   const ogUrl = `${origin}/u/${cardId}`;

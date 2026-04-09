@@ -9,6 +9,7 @@ import {
   DEFAULT_CARD_DATA,
   FEATURED_PROJECT_LIMIT,
   formatProofDateRange,
+  getPrimaryProjectUrl,
   getProofSourceLabel,
   getRankingSignalDescription,
   getRankingSignalLabel,
@@ -33,7 +34,6 @@ import { getRankTier } from '@/lib/titles';
 import CardRenderer from './CardRenderer';
 import SuccessAnimation from './SuccessAnimation';
 import { domToBlob } from 'modern-screenshot';
-import { validateUrl } from '@/lib/url';
 
 const SLOGAN_CATEGORY_LABELS = {
   flex: { zh: '炫耀', en: 'Flex' },
@@ -288,9 +288,13 @@ export default function CardEditor() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareCaption, setShareCaption] = useState('');
   const [shareLink, setShareLink] = useState('');
+  const [siteOrigin, setSiteOrigin] = useState('');
+  const [exportCardSnapshot, setExportCardSnapshot] = useState<CardData | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<'caption' | 'link' | null>(null);
+  const [showValidation, setShowValidation] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
   const proofFileInputRef = useRef<HTMLInputElement>(null);
@@ -328,17 +332,20 @@ export default function CardEditor() {
     if (isIOS) setPlatform('ios');
     else if (isAndroid) setPlatform('android');
     else setPlatform('desktop');
+    setSiteOrigin(window.location.origin);
   }, []);
 
-  useEffect(() => {
-    if (isMobile && !mobilePreviewInitializedRef.current) {
-      setStep(3);
-      mobilePreviewInitializedRef.current = true;
-    }
-  }, [isMobile]);
+  // Removed: no longer force mobile users to step 3 without onboarding
 
   useEffect(() => {
-    const preset = new URLSearchParams(window.location.search).get('p');
+    const searchParams = new URLSearchParams(window.location.search);
+    const preset = searchParams.get('p');
+    const localeParam = searchParams.get('locale');
+
+    if (localeParam === 'en' || localeParam === 'zh') {
+      setData((prev) => ({ ...prev, locale: localeParam }));
+    }
+
     if (!preset) return;
 
     const decodedPreset = decodeCardTemplatePreset(preset);
@@ -391,7 +398,9 @@ export default function CardEditor() {
   const achievements = useMemo(() => getAchievements(data), [data]);
   const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
   const normalizedProjects = useMemo(() => normalizeFeaturedProjects(data.projects), [data.projects]);
-  const validDestinationUrl = useMemo(() => validateUrl(data.qrcodeUrl.trim()), [data.qrcodeUrl]);
+  const primaryProjectUrl = useMemo(() => getPrimaryProjectUrl({ projects: data.projects }), [data.projects]);
+  const previewCardData = useMemo(() => ({ ...data, qrcodeUrl: siteOrigin }), [data, siteOrigin]);
+  const exportCardData = exportCardSnapshot ?? previewCardData;
   const readinessItems = useMemo(() => ([
     {
       id: 'identity',
@@ -420,10 +429,10 @@ export default function CardEditor() {
     {
       id: 'share',
       label: isZh ? '分享承接' : 'Share flow',
-      done: Boolean(validDestinationUrl),
-      hint: isZh ? '添加主页/GitHub 链接' : 'Add destination link',
+      done: Boolean(primaryProjectUrl),
+      hint: isZh ? '导出后自动生成 TokCard 二维码' : 'TokCard QR is added on export',
     },
-  ]), [data.slogan, data.totalTokens, data.trustTier, data.username, isZh, normalizedProjects.length, validDestinationUrl]);
+  ]), [data.slogan, data.totalTokens, data.trustTier, data.username, isZh, normalizedProjects.length, primaryProjectUrl]);
   const readinessScore = useMemo(() => readinessItems.filter((item) => item.done).length, [readinessItems]);
   const trustTierLabel = useMemo(() => getTrustTierLabel(data.trustTier, data.locale), [data.locale, data.trustTier]);
   const trustTierDescription = useMemo(() => getTrustTierDescription(data.trustTier, data.locale), [data.locale, data.trustTier]);
@@ -433,14 +442,20 @@ export default function CardEditor() {
   ), [data.locale, data.proofSource]);
   const proofRangeLabel = useMemo(() => formatProofDateRange(data.proofDateRange, data.locale), [data.locale, data.proofDateRange]);
   const rankingDisplay = useMemo(() => getMaxRankingDisplay(data.trustTier), [data.trustTier]);
+  const fieldErrors = useMemo(() => ({
+    username: !data.username.trim(),
+    slogan: !data.slogan.trim(),
+    tokens: data.totalTokens <= 0,
+    project: !primaryProjectUrl,
+  }), [data.slogan, data.totalTokens, data.username, primaryProjectUrl]);
   const exportIssues = useMemo(() => {
     const issues: string[] = [];
-    if (!data.username.trim()) issues.push(isZh ? '请先填写用户名。' : 'Add a username first.');
-    if (!data.slogan.trim()) issues.push(isZh ? '请先写一句话签名。' : 'Add a slogan first.');
-    if (data.totalTokens <= 0) issues.push(isZh ? '请先填写有效的 Token 消耗量。' : 'Add a valid token amount first.');
-    if (!validDestinationUrl) issues.push(isZh ? '请至少添加一个有效的链接，用于生成二维码和分享跳转。' : 'Add at least one valid link for the QR code and share destination.');
+    if (fieldErrors.username) issues.push(isZh ? '请先填写用户名。' : 'Add a username first.');
+    if (fieldErrors.slogan) issues.push(isZh ? '请先写一句话签名。' : 'Add a slogan first.');
+    if (fieldErrors.tokens) issues.push(isZh ? '请先填写有效的 Token 消耗量。' : 'Add a valid token amount first.');
+    if (fieldErrors.project) issues.push(isZh ? '请至少添加一个有效项目链接，用于展示作品和生成分享页。' : 'Add at least one valid project link for project discovery and sharing.');
     return issues;
-  }, [data.qrcodeUrl, data.slogan, data.totalTokens, data.username, isZh, validDestinationUrl]);
+  }, [fieldErrors, isZh]);
   const canExport = exportIssues.length === 0;
   const rankingSignalLabel = useMemo(() => getRankingSignalLabel(rankTier, data.trustTier, data.locale), [data.locale, data.trustTier, rankTier]);
   const rankingSignalDescription = useMemo(() => getRankingSignalDescription(rankTier, data.trustTier, data.locale), [data.locale, data.trustTier, rankTier]);
@@ -559,20 +574,20 @@ export default function CardEditor() {
       try {
         const hostname = new URL(url).hostname.replace('www.', '');
         const match = Object.entries(KNOWN_SITES).find(([domain]) => hostname.includes(domain));
+        // Only auto-fill if icon/name are still at defaults
+        const currentProject = data.projects[index];
+        const isDefaultIcon = !currentProject?.icon || currentProject.icon === '✨';
+        const isDefaultName = !currentProject?.name;
         if (match) {
-          updateProject(index, 'icon', match[1].icon);
-          updateProject(index, 'name', match[1].name);
+          if (isDefaultIcon) updateProject(index, 'icon', match[1].icon);
+          if (isDefaultName) updateProject(index, 'name', match[1].name);
         } else {
-          updateProject(index, 'icon', '🔗');
-          updateProject(index, 'name', hostname.split('.')[0]);
+          if (isDefaultIcon) updateProject(index, 'icon', '🔗');
+          if (isDefaultName) updateProject(index, 'name', hostname.split('.')[0]);
         }
       } catch (_e) { /* invalid URL */ }
     }
-    // First link auto-syncs to QR code
-    if (index === 0) {
-      updateField('qrcodeUrl', url);
-    }
-  }, [updateProject, updateField]);
+  }, [data.projects, updateProject]);
 
   const ensureProjectSlots = useMemo(
     () => Array.from({ length: FEATURED_PROJECT_LIMIT }, (_, index) => data.projects[index] ?? createEmptyProject(index)),
@@ -712,22 +727,16 @@ export default function CardEditor() {
   const handleModelBreakdown = useCallback((index: number, field: keyof ModelBreakdown, value: string | number) => {
     setData(prev => {
       const breakdown = [...prev.modelBreakdown];
-      breakdown[index] = { ...breakdown[index], [field]: value };
-      
-      // Normalize percentages if they sum to more than 100
-      const total = breakdown.reduce((sum, m) => sum + m.percentage, 0);
-      if (total > 100) {
-        const scale = 100 / total;
-        breakdown.forEach(m => {
-          m.percentage = Math.round(m.percentage * scale);
-        });
-        // Adjust last item to ensure sum is exactly 100
-        const sum = breakdown.reduce((s, m) => s + m.percentage, 0);
-        if (sum !== 100 && breakdown.length > 0) {
-          breakdown[breakdown.length - 1].percentage += 100 - sum;
-        }
+      let newValue = value;
+
+      // Clamp percentage to prevent exceeding 100 total
+      if (field === 'percentage' && typeof newValue === 'number') {
+        const othersTotal = breakdown.reduce((sum, m, i) => (i === index ? sum : sum + m.percentage), 0);
+        const maxAllowed = 100 - othersTotal;
+        newValue = Math.max(0, Math.min(newValue, maxAllowed));
       }
-      
+
+      breakdown[index] = { ...breakdown[index], [field]: newValue };
       return { ...prev, modelBreakdown: breakdown };
     });
   }, []);
@@ -1040,10 +1049,8 @@ export default function CardEditor() {
   }, [flashCopyFeedback, isZh, shareLink]);
 
   const handleExport = useCallback(async () => {
-    const el = document.getElementById(exportRenderId);
-    if (!el) return;
-
     if (exportIssues.length > 0) {
+      setShowValidation(true);
       alert(exportIssues.join(`\n`));
       return;
     }
@@ -1053,6 +1060,7 @@ export default function CardEditor() {
       return;
     }
 
+    setExportNotice(null);
     setIsExporting(true);
     setExportProgress(8);
 
@@ -1060,12 +1068,27 @@ export default function CardEditor() {
       if (document.fonts?.ready) {
         await document.fonts.ready;
       }
-      setExportProgress(24);
+      setExportProgress(20);
+
+      const cardWithRef = { ...data, referralCode: sanitizeReferralCode(data.referralCode || data.username) };
+      const nextShareCaption = shareCaption || buildShareCaption();
+      const shortResult = await saveCardAndGetShortUrl(cardWithRef, window.location.origin);
+      const nextShareLink = shortResult?.shortUrl
+        ?? buildSharedCardUrl(cardWithRef, window.location.origin)
+        ?? window.location.origin;
+      const nextExportCard = { ...cardWithRef, qrcodeUrl: nextShareLink };
+
+      setExportCardSnapshot(nextExportCard);
+      setExportProgress(36);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+      const el = document.getElementById(exportRenderId);
+      if (!el) throw new Error('Export canvas not found');
 
       await waitForImagesToSettle(el);
-      setExportProgress(42);
+      setExportProgress(52);
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      setExportProgress(60);
+      setExportProgress(68);
 
       const blob = await domToBlob(el, {
         scale: 2,
@@ -1084,15 +1107,6 @@ export default function CardEditor() {
       if (!blob) throw new Error('Generation failed: null blob');
 
       const filename = `tokcard-${data.username || 'card'}-${data.platform}.png`;
-      const nextShareCaption = shareCaption || buildShareCaption();
-
-      // Try short URL first, fall back to legacy base64 URL
-      const cardWithRef = { ...data, referralCode: sanitizeReferralCode(data.referralCode || data.username) };
-      const shortResult = await saveCardAndGetShortUrl(cardWithRef, window.location.origin);
-      const nextShareLink = shortResult?.shortUrl
-        ?? buildSharedCardUrl(cardWithRef, window.location.origin)
-        ?? '';
-
       let shared = false;
 
       const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1121,11 +1135,17 @@ export default function CardEditor() {
         const objectUrl = URL.createObjectURL(blob);
         downloadViaLink(objectUrl, filename);
         setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+        const notice = isZh ? '图片已下载，可继续复制文案或分享链接' : 'Image downloaded. You can now copy the caption or share link.';
+        setExportNotice(notice);
+        window.setTimeout(() => setExportNotice((current) => (current === notice ? null : current)), 2800);
+        if (isMobileDevice) {
+          alert(isZh ? '图片已保存到相册或下载文件夹' : 'Image saved to your downloads');
+        }
       }
 
       setExportProgress(100);
       setShowSuccessAnimation(true);
-      window.setTimeout(() => setShowSuccessAnimation(false), 2200);
+      window.setTimeout(() => setShowSuccessAnimation(false), 2800);
       setShareCaption(nextShareCaption);
       setShareLink(nextShareLink);
       setCopyFeedback(null);
@@ -1138,8 +1158,9 @@ export default function CardEditor() {
         ? `下载失败 (${errMsg})\n\n可能原因：\n1. 浏览器拦截了下载\n2. 包含不受支持的外部图片\n\n请尝试：更换浏览器，或更换头像为 Emoji 后重试。` 
         : `Download failed: ${errMsg}. Try changing avatar or browser.`);
     } finally {
+      setExportCardSnapshot(null);
       setIsExporting(false);
-      window.setTimeout(() => setExportProgress(0), 600);
+      window.setTimeout(() => setExportProgress(0), 1500);
     }
   }, [buildShareCaption, data, downloadViaLink, exportIssues, exportRenderId, isPreviewReady, isZh, shareCaption, waitForImagesToSettle]);
 
@@ -1179,7 +1200,12 @@ export default function CardEditor() {
 
   return (
     <div className="min-h-screen text-[#1d1d1f] bg-[#fbfbfd] selection:bg-[#0071e3] selection:text-white">
-      <SuccessAnimation show={showSuccessAnimation} locale={isZh ? 'zh' : 'en'} />
+      <SuccessAnimation show={showSuccessAnimation} duration={2800} locale={isZh ? 'zh' : 'en'} />
+      {exportNotice && (
+        <div className="fixed left-1/2 top-5 z-[71] -translate-x-1/2 rounded-full border border-white/20 bg-[#0f172a]/92 px-4 py-2 text-xs font-medium text-white shadow-[0_16px_40px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+          {exportNotice}
+        </div>
+      )}
       {/* Header */}
       <header className="px-6 py-5 border-b border-[#d2d2d7]/30 bg-[#fbfbfd]/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -1267,8 +1293,8 @@ export default function CardEditor() {
                     style={{ borderLeftWidth: 3, borderLeftColor: preset.accent }}
                   >
                     <div className="text-lg leading-none">{preset.emoji}</div>
-                    <div className="mt-2 text-xs font-semibold text-[#1d1d1f] leading-tight">{preset.name}</div>
-                    <div className="mt-1 text-[10px] leading-4 text-[#94a3b8]">{preset.description}</div>
+                    <div className="mt-2 text-xs font-semibold text-[#1d1d1f] leading-tight">{isZh ? preset.name : preset.nameEn}</div>
+                    <div className="mt-1 text-[10px] leading-4 text-[#94a3b8]">{isZh ? preset.description : preset.descriptionEn}</div>
                   </button>
                 ))}
               </div>
@@ -1284,8 +1310,10 @@ export default function CardEditor() {
                 value={data.username}
                 onChange={e => updateField('username', e.target.value)}
                 placeholder={isZh ? '你的名字或昵称' : 'Your name or handle'}
-                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                maxLength={64}
+                className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm ${showValidation && fieldErrors.username ? 'border-red-400' : 'border-[#d2d2d7]'}`}
               />
+              <div className="mt-1 text-right text-xs text-[#94a3b8]">{data.username.length}/64</div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1299,7 +1327,7 @@ export default function CardEditor() {
                   className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
                 >
                   {FEATURED_REGIONS.map((item) => (
-                    <option key={item.value || 'all'} value={item.value}>{item.flag} {item.label}</option>
+                    <option key={item.value || 'all'} value={item.value}>{item.flag} {isZh ? item.label : item.labelEn}</option>
                   ))}
                 </select>
               </div>
@@ -1327,11 +1355,22 @@ export default function CardEditor() {
                 value={tokenInput}
                 onChange={e => handleTokenInput(e.target.value)}
                 placeholder={isZh ? '例如: 2.3B, 500M, 10万' : 'e.g. 2.3B, 500M, 1000000'}
-                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm ${showValidation && fieldErrors.tokens ? 'border-red-400' : 'border-[#d2d2d7]'}`}
               />
+              {tokenInput.trim() && data.totalTokens <= 0 && (
+                <p className="mt-2 text-xs text-red-500">{isZh ? '无法识别的格式，请用数字或 K/M/B/万 缩写' : 'Unrecognized format. Use numbers or K/M/B suffixes.'}</p>
+              )}
               <p className="mt-2 text-xs text-[#86868b]">
                 {isZh ? '支持 K/M/B/万 缩写，如 2.3B = 23 亿' : 'Supports K/M/B suffixes, e.g. 2.3B = 2,300,000,000'}
               </p>
+              {data.totalTokens > 0 && rankTier && (
+                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-2 text-xs font-medium text-[#334155]">
+                  <span>{rankTier.badge}</span>
+                  <span>
+                    {isZh ? `当前等级：${rankTier.label} · ${rankTier.clubLabel}` : `Current tier: ${rankTier.labelEn} · ${rankTier.clubLabelEn}`}
+                  </span>
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {([
                   { label: '轻度玩家', labelEn: 'Casual', value: '10M' },
@@ -1501,9 +1540,10 @@ export default function CardEditor() {
                 value={data.slogan}
                 onChange={e => updateField('slogan', e.target.value)}
                 placeholder={isZh ? '一句话介绍自己' : 'One line about you'}
-                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm ${showValidation && fieldErrors.slogan ? 'border-red-400' : 'border-[#d2d2d7]'}`}
                 maxLength={60}
               />
+              <div className="mt-1 text-right text-xs text-[#94a3b8]">{data.slogan.length}/60</div>
               {aiSlogans.length > 0 && (
                 <div className="mt-3 p-4 rounded-xl bg-white border border-[#0071e3]/30 shadow-sm">
                   <div className="text-xs font-medium mb-3 text-[#0071e3]">{isZh ? 'AI 推荐 (点击选择)' : 'AI Suggestions (click to use)'}</div>
@@ -1923,12 +1963,17 @@ export default function CardEditor() {
               {ensureProjectSlots[0]?.url && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-[#94a3b8]">
                   <span>📱</span>
-                  <span>{isZh ? '第一个链接会生成卡片右下角的二维码' : 'First link generates the QR code on your card'}</span>
+                  <span>{isZh ? '导出后会自动生成 TokCard 二维码，扫码可看卡片和排行' : 'Export adds a TokCard QR so people can open your card and ranking'}</span>
                 </div>
               )}
-              {data.qrcodeUrl.trim() && !validDestinationUrl && (
-                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-                  {isZh ? '当前主链接不是有效的 http/https 地址，导出和分享前请修正。' : 'The main link is not a valid http/https URL. Fix it before exporting.'}
+              {ensureProjectSlots[0]?.url && !primaryProjectUrl && (
+                <div className={`mt-3 rounded-2xl border px-4 py-3 text-xs leading-5 ${showValidation ? 'border-red-400 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                  {isZh ? '当前主项目链接不是有效的 http/https 地址，导出和分享前请修正。' : 'The primary project link is not a valid http/https URL. Fix it before exporting.'}
+                </div>
+              )}
+              {showValidation && fieldErrors.project && !ensureProjectSlots[0]?.url && (
+                <div className="mt-3 rounded-2xl border border-red-400 bg-red-50 px-4 py-3 text-xs leading-5 text-red-700">
+                  {isZh ? '请至少添加一个项目链接' : 'Add at least one project link'}
                 </div>
               )}
             </div>
@@ -2015,9 +2060,9 @@ export default function CardEditor() {
                       ref={proofFileInputRef}
                       className="hidden"
                     />
-                    <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '上传 usage / 账单截图' : 'Upload usage or billing screenshots'}</div>
+                    <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '添加截图凭证' : 'Add screenshot proof'}</div>
                     <p className="mt-2 text-xs leading-5 text-[#64748b]">
-                      {isZh ? '用于把卡片升级为"截图佐证"。当前版本不会把截图本身放进分享链接，只会带上可信标签、来源和日期范围。' : 'Use this to upgrade the card to proof attached. The screenshot itself stays local in this version; only the trust label, source, and date range travel with the shared card.'}
+                      {isZh ? '仅用于标记信任等级，截图不会上传到服务器。分享时只带标签、来源和日期范围。' : 'Used to mark trust level only. Screenshots stay local; only the label, source, and date range travel with the card.'}
                     </p>
                     <button
                       type="button"
@@ -2274,7 +2319,7 @@ export default function CardEditor() {
                     overflow: 'hidden',
                   }}
                 >
-                  <CardRenderer data={data} renderId={previewRenderId} scale={previewCardScale} />
+                  <CardRenderer data={previewCardData} renderId={previewRenderId} scale={previewCardScale} />
                 </div>
               </div>
             </div>
@@ -2423,7 +2468,7 @@ export default function CardEditor() {
             justifyContent: 'center',
           }}
         >
-          <CardRenderer data={data} renderId={`${exportRenderId}-card`} scale={exportCardScale} onImageReady={setIsPreviewReady} />
+          <CardRenderer data={exportCardData} renderId={`${exportRenderId}-card`} scale={exportCardScale} onImageReady={setIsPreviewReady} />
         </div>
       </div>
     </div>

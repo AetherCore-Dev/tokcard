@@ -105,6 +105,9 @@ function buildSafeCardPayload(raw: Record<string, unknown>, id: string): string 
     p: safeString(raw.p, 16),
     link: safeString(raw.link, 512),
     pr: projects,
+    ppn: safeString(raw.ppn, 64), // primaryProjectName
+    ppu: safeString(raw.ppu, 512), // primaryProjectUrl
+    ppp: safeString(raw.ppp, 200), // primaryProjectPitch
     ref: safeString(raw.ref, 32),
     tr: safeString(raw.tr, 32),
     ps: safeString(raw.ps, 16),

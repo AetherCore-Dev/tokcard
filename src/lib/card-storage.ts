@@ -1,5 +1,5 @@
 import type { CardData, ModelBreakdown, FeaturedProject } from '@/lib/card';
-import { normalizeCompany, normalizeFeaturedProjects, normalizeRegion, sanitizeReferralCode } from '@/lib/card';
+import { getPrimaryProjectUrl, normalizeCompany, normalizeFeaturedProjects, normalizeRegion, sanitizeReferralCode } from '@/lib/card';
 
 interface SaveCardResponse {
   id: string;
@@ -28,6 +28,9 @@ interface SharedCardPayloadForStorage {
   p: CardData['platform'];
   link: string;
   pr?: FeaturedProject[];
+  ppn?: string; // primaryProjectName
+  ppu?: string; // primaryProjectUrl
+  ppp?: string; // primaryProjectPitch
   ref?: string;
   tr?: CardData['trustTier'];
   ps?: CardData['proofSource'];
@@ -55,6 +58,7 @@ function buildPayloadForStorage(data: CardData): SharedCardPayloadForStorage {
   const background = getShareSafeBackground(data);
   const projects = normalizeFeaturedProjects(data.projects);
   const referralCode = sanitizeReferralCode(data.referralCode || data.username);
+  const targetUrl = getPrimaryProjectUrl(data);
 
   return {
     v: 1,
@@ -76,8 +80,11 @@ function buildPayloadForStorage(data: CardData): SharedCardPayloadForStorage {
     mc: data.metaphorCategory,
     l: data.locale,
     p: data.platform,
-    link: data.qrcodeUrl.trim(),
+    link: targetUrl,
     pr: projects,
+    ppn: data.primaryProjectName,
+    ppu: data.primaryProjectUrl,
+    ppp: data.primaryProjectPitch,
     ref: referralCode,
     tr: data.trustTier,
     ps: data.proofSource,
@@ -95,7 +102,7 @@ export async function saveCardAndGetShortUrl(
   data: CardData,
   origin: string
 ): Promise<{ shortUrl: string; cardId: string } | null> {
-  if (!data.qrcodeUrl.trim()) {
+  if (!getPrimaryProjectUrl(data)) {
     return null;
   }
 

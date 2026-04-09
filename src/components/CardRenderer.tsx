@@ -1143,7 +1143,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   textAlign: 'center', letterSpacing: '0.08em', textTransform: 'uppercase',
                   maxWidth: 100 * s,
                 }}>
-                  {isZh ? '扫码进入我的分享页' : 'Scan to view my share page'}
+                  {isZh ? '扫码看卡片和项目' : 'Scan to see card & projects'}
                 </div>
               </div>
             )}

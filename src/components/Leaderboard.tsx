@@ -34,8 +34,10 @@ export default function Leaderboard() {
   const [companyFilter, setCompanyFilter] = useState('');
   const [time, setTime] = useState<TimeFilter>('all');
   const [highlightId, setHighlightId] = useState('');
+  const [focusNotFound, setFocusNotFound] = useState(false);
   const [page, setPage] = useState<number | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const browserIsZh = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -136,10 +138,16 @@ export default function Leaderboard() {
   }, [channel, region, companyFilter, time, highlightId, page, hasInitialized]);
 
   useEffect(() => {
-    if (!highlightId || !data?.entries.length) return;
+    if (!highlightId || !data?.entries.length) {
+      setFocusNotFound(false);
+      return;
+    }
     const node = document.querySelector(`[data-rank-id="${highlightId}"]`);
     if (node instanceof HTMLElement) {
       node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setFocusNotFound(false);
+    } else {
+      setFocusNotFound(true);
     }
   }, [data, highlightId]);
 
@@ -149,6 +157,12 @@ export default function Leaderboard() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / (data.meta?.limit ?? PAGE_SIZE))) : 1;
   const rangeStart = data && data.total > 0 ? (data.meta?.offset ?? 0) + 1 : 0;
   const rangeEnd = data ? (data.meta?.offset ?? 0) + data.entries.length : 0;
+  const pageTitle = browserIsZh ? 'Token 排行榜' : 'Token Leaderboard';
+  const pageSubtitle = data && data.total > 0
+    ? (browserIsZh
+      ? `${data.total} 位开发者符合当前筛选 · 当前显示 ${rangeStart}-${rangeEnd}`
+      : `${data.total} builders match current filters · showing ${rangeStart}-${rangeEnd}`)
+    : (browserIsZh ? '还没有符合条件的上榜者' : 'No builders match the current filters');
 
   const buildRankHref = useCallback((overrides: { region?: string; company?: string }) => {
     const params = new URLSearchParams();
@@ -172,10 +186,8 @@ export default function Leaderboard() {
   return (
     <div className="max-w-4xl mx-auto w-full px-4 pb-32">
       <div className="pt-6 pb-5 text-center">
-        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">Token 排行榜</h1>
-        <p className="mt-2 text-sm text-[#6b7280]">
-          {data && data.total > 0 ? `${data.total} 位开发者符合当前筛选 · 当前显示 ${rangeStart}-${rangeEnd}` : '还没有符合条件的上榜者'}
-        </p>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{pageTitle}</h1>
+        <p className="mt-2 text-sm text-[#6b7280]">{pageSubtitle}</p>
       </div>
 
       <div className="rounded-[28px] border border-[#dbe4ff] bg-white/90 p-4 md:p-5 shadow-sm backdrop-blur mb-5">
@@ -196,14 +208,14 @@ export default function Leaderboard() {
               }`}
             >
               <span>{f.icon}</span>
-              <span>{f.label}</span>
+              <span>{browserIsZh ? f.labelZh : f.labelEn}</span>
             </button>
           ))}
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_220px]">
           <label className="flex flex-col gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">地区 / 国家</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '地区 / 国家' : 'Region / Country'}</span>
             <select
               value={region}
               onChange={(e) => {
@@ -214,13 +226,13 @@ export default function Leaderboard() {
               className="min-h-11 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#1d1d1f] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
             >
               {FEATURED_REGIONS.map((item) => (
-                <option key={item.value || 'all'} value={item.value}>{item.flag} {item.label}</option>
+                <option key={item.value || 'all'} value={item.value}>{item.flag} {browserIsZh ? item.label : item.labelEn}</option>
               ))}
             </select>
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">公司 / 组织</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '公司 / 组织' : 'Company / Org'}</span>
             <div className="flex gap-2">
               <input
                 list="leaderboard-company-suggestions"
@@ -234,7 +246,7 @@ export default function Leaderboard() {
                     setCompanyFilter(companyInput.trim());
                   }
                 }}
-                placeholder="输入公司或组织名"
+                placeholder={browserIsZh ? '输入公司或组织名' : 'Search company or organization'}
                 className="min-h-11 flex-1 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#1d1d1f] placeholder-[#94a3b8] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
               />
               <button
@@ -246,7 +258,7 @@ export default function Leaderboard() {
                 }}
                 className="min-h-11 rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white"
               >
-                应用
+                {browserIsZh ? '应用' : 'Apply'}
               </button>
             </div>
             <datalist id="leaderboard-company-suggestions">
@@ -255,7 +267,7 @@ export default function Leaderboard() {
           </label>
 
           <div className="flex flex-col gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">时间范围</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '时间范围' : 'Time Range'}</span>
             <div className="grid grid-cols-3 gap-2">
               {TIME_FILTERS.map((item) => (
                 <button
@@ -272,7 +284,7 @@ export default function Leaderboard() {
                       : 'border border-[#dbe4ff] bg-white text-[#64748b] hover:border-[#0071e3]'
                   }`}
                 >
-                  {item.label}
+                  {browserIsZh ? item.labelZh : item.labelEn}
                 </button>
               ))}
             </div>
@@ -282,18 +294,20 @@ export default function Leaderboard() {
         {(region || companyFilter || time !== 'all' || channel !== 'all') && (
           <>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#64748b]">
-              <span className="font-medium">当前筛选：</span>
-              {channel !== 'all' && <FilterChip label={`渠道 · ${CHANNEL_FILTERS.find((item) => item.value === channel)?.label ?? channel}`} onClear={() => { setPage(1); setHighlightId(''); setChannel('all'); }} />}
-              {region && <FilterChip label={`地区 · ${getRegionLabel(region)}`} onClear={() => { setPage(1); setHighlightId(''); setRegion(''); }} />}
-              {companyFilter && <FilterChip label={`组织 · ${companyFilter}`} onClear={() => { setPage(1); setHighlightId(''); setCompanyInput(''); setCompanyFilter(''); }} />}
-              {time !== 'all' && <FilterChip label={`时间 · ${TIME_FILTERS.find((item) => item.value === time)?.label ?? time}`} onClear={() => { setPage(1); setHighlightId(''); setTime('all'); }} />}
+              <span className="font-medium">{browserIsZh ? '当前筛选：' : 'Active filters:'}</span>
+              {channel !== 'all' && <FilterChip label={`${browserIsZh ? '渠道' : 'Channel'} · ${browserIsZh ? CHANNEL_FILTERS.find((item) => item.value === channel)?.labelZh : CHANNEL_FILTERS.find((item) => item.value === channel)?.labelEn ?? channel}`} onClear={() => { setPage(1); setHighlightId(''); setChannel('all'); }} />}
+              {region && <FilterChip label={`${browserIsZh ? '地区' : 'Region'} · ${getRegionLabel(region, browserIsZh)}`} onClear={() => { setPage(1); setHighlightId(''); setRegion(''); }} />}
+              {companyFilter && <FilterChip label={`${browserIsZh ? '组织' : 'Org'} · ${companyFilter}`} onClear={() => { setPage(1); setHighlightId(''); setCompanyInput(''); setCompanyFilter(''); }} />}
+              {time !== 'all' && <FilterChip label={`${browserIsZh ? '时间' : 'Time'} · ${browserIsZh ? TIME_FILTERS.find((item) => item.value === time)?.labelZh : TIME_FILTERS.find((item) => item.value === time)?.labelEn ?? time}`} onClear={() => { setPage(1); setHighlightId(''); setTime('all'); }} />}
             </div>
             <div className="mt-3 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-sm text-[#475569]">
               {companyFilter
-                ? `正在查看 ${companyFilter} 的成员榜单${region ? ` · ${getRegionLabel(region)}` : ''}`
+                ? (browserIsZh
+                  ? `正在查看 ${companyFilter} 的成员榜单${region ? ` · ${getRegionLabel(region, true)}` : ''}`
+                  : `Viewing builders from ${companyFilter}${region ? ` · ${getRegionLabel(region, false)}` : ''}`)
                 : region
-                  ? `正在查看 ${getRegionLabel(region)} 的开发者榜单`
-                  : `当前榜单已按所选维度过滤`}
+                  ? (browserIsZh ? `正在查看 ${getRegionLabel(region, true)} 的开发者榜单` : `Viewing builders in ${getRegionLabel(region, false)}`)
+                  : (browserIsZh ? '当前榜单已按所选维度过滤' : 'The leaderboard is filtered by your current selections')}
             </div>
           </>
         )}
@@ -303,10 +317,10 @@ export default function Leaderboard() {
         <div className="mb-5 rounded-[28px] border border-[#dbe4ff] bg-white p-4 md:p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">热门组织</div>
-              <div className="mt-1 text-sm text-[#64748b]">看看哪些公司/组织在高强度使用 AI。</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '热门组织' : 'Top organizations'}</div>
+              <div className="mt-1 text-sm text-[#64748b]">{browserIsZh ? '看看哪些公司/组织在高强度使用 AI。' : 'See which organizations are using AI most aggressively.'}</div>
             </div>
-            <div className="text-xs text-[#94a3b8]">按当前筛选计算</div>
+            <div className="text-xs text-[#94a3b8]">{browserIsZh ? '按当前筛选计算' : 'Calculated from current filters'}</div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {topCompanies.map(({ name, count }) => (
@@ -316,7 +330,7 @@ export default function Leaderboard() {
                 className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-4 text-sm font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
               >
                 <span>{name}</span>
-                <span className="text-xs text-[#94a3b8]">{count} 人</span>
+                <span className="text-xs text-[#94a3b8]">{count} {browserIsZh ? '人' : 'people'}</span>
               </a>
             ))}
           </div>
@@ -326,7 +340,12 @@ export default function Leaderboard() {
       {data && data.entries.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 pb-24">
+          {focusNotFound && highlightId && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {browserIsZh ? '该卡片不在当前筛选结果中，试试清除筛选条件' : 'This card is not in current filters. Try clearing filters.'}
+            </div>
+          )}
           {data?.entries.map((entry, index) => (
             <LeaderboardRow
               key={entry.id}
@@ -334,6 +353,7 @@ export default function Leaderboard() {
               rank={(data?.meta?.offset ?? 0) + index + 1}
               highlight={entry.id === highlightId}
               buildRankHref={buildRankHref}
+              isZh={browserIsZh}
             />
           ))}
         </div>
@@ -342,7 +362,7 @@ export default function Leaderboard() {
       {data && data.total > PAGE_SIZE && (
         <div className="mt-5 flex items-center justify-between gap-3 rounded-[24px] border border-[#dbe4ff] bg-white p-4 shadow-sm">
           <div className="text-sm text-[#64748b]">
-            第 <span className="font-semibold text-[#111827]">{currentPage}</span> / {totalPages} 页
+            {browserIsZh ? '第 ' : 'Page '}<span className="font-semibold text-[#111827]">{currentPage}</span>{browserIsZh ? ` / ${totalPages} 页` : ` / ${totalPages}`}
           </div>
           <div className="flex gap-2">
             <button
@@ -351,7 +371,7 @@ export default function Leaderboard() {
               disabled={currentPage <= 1}
               className="min-h-10 rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569] disabled:opacity-40"
             >
-              上一页
+              {browserIsZh ? '上一页' : 'Previous'}
             </button>
             <button
               type="button"
@@ -359,7 +379,7 @@ export default function Leaderboard() {
               disabled={currentPage >= totalPages}
               className="min-h-10 rounded-full bg-[#111827] px-4 text-sm font-semibold text-white disabled:opacity-40"
             >
-              下一页
+              {browserIsZh ? '下一页' : 'Next'}
             </button>
           </div>
         </div>
@@ -371,7 +391,7 @@ export default function Leaderboard() {
             href="/create"
             className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-semibold text-lg bg-[#0071e3] text-white shadow-[0_18px_40px_rgba(0,113,227,0.28)] hover:scale-[1.01] active:scale-[0.99] transition-all"
           >
-            我也要上榜
+            {browserIsZh ? '我也要上榜' : 'Create my card'}
           </a>
         </div>
       </div>
@@ -397,11 +417,13 @@ function LeaderboardRow({
   rank,
   highlight,
   buildRankHref,
+  isZh,
 }: {
   entry: LeaderboardEntry;
   rank: number;
   highlight: boolean;
   buildRankHref: (overrides: { region?: string; company?: string }) => string;
+  isZh: boolean;
 }) {
   const tier = RANK_TIER_BADGES[entry.rankTierId] ?? RANK_TIER_BADGES.starter;
   const isTop3 = rank <= 3;
@@ -436,7 +458,7 @@ function LeaderboardRow({
                 className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-2.5 py-1 text-[11px] font-medium text-[#475569] hover:border-[#0071e3]"
               >
                 <span>{getRegionFlag(entry.region)}</span>
-                <span>{getRegionLabel(entry.region)}</span>
+                <span>{getRegionLabel(entry.region, isZh)}</span>
               </a>
             )}
             {entry.company && (
@@ -451,23 +473,39 @@ function LeaderboardRow({
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#94a3b8]">
             {entry.topModel && <span>{entry.topModel}</span>}
-            {entry.projectCount > 0 && <span>· {entry.projectCount} 项目</span>}
-            <span>· {new Date(entry.createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}</span>
+            {entry.projectCount > 0 && <span>· {entry.projectCount} {isZh ? '项目' : 'projects'}</span>}
+            <span>· {new Date(entry.createdAt).toLocaleDateString(isZh ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}</span>
           </div>
+
+          {entry.topProject && (
+            <a
+              href={entry.topProject.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex max-w-full items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1.5 text-xs font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
+            >
+              <span>{entry.topProject.icon}</span>
+              <span className="truncate">{entry.topProject.name}</span>
+            </a>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-2">
             <a
               href={`/u/${entry.id}`}
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#0071e3] px-4 text-sm font-semibold text-white"
             >
-              查看卡片
+              {isZh ? '查看卡片' : 'View card'}
             </a>
-            <a
-              href={`/u/${entry.id}#projects`}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569]"
-            >
-              查看项目
-            </a>
+            {entry.topProject && (
+              <a
+                href={entry.topProject.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569]"
+              >
+                {isZh ? '打开项目' : 'Open project'}
+              </a>
+            )}
           </div>
         </div>
 
@@ -475,7 +513,7 @@ function LeaderboardRow({
           <div className="font-bold text-sm md:text-base">{formatTokens(entry.totalTokens)}</div>
           <div className="flex items-center justify-end gap-1 mt-1">
             <span className="text-xs">{tier.badge}</span>
-            <span className="text-xs font-medium" style={{ color: tier.accent }}>{tier.label}</span>
+            <span className="text-xs font-medium" style={{ color: tier.accent }}>{isZh ? tier.label : tier.labelEn}</span>
           </div>
         </div>
       </div>
@@ -497,30 +535,32 @@ function LoadingSkeleton() {
 }
 
 function EmptyState() {
+  const isZh = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language);
   return (
     <div className="text-center py-16 text-[#94a3b8] rounded-[28px] border border-[#dbe4ff] bg-white">
       <div className="text-4xl mb-3">🏜️</div>
-      <p className="text-lg font-medium">当前筛选下暂无用户上榜</p>
-      <p className="mt-2 text-sm">换个维度看看，或者成为第一个。</p>
+      <p className="text-lg font-medium">{isZh ? '当前筛选下暂无用户上榜' : 'No users found for these filters'}</p>
+      <p className="mt-2 text-sm">{isZh ? '换个维度看看，或者成为第一个。' : 'Try different filters or create the first card.'}</p>
       <a href="/create" className="mt-4 inline-flex min-h-11 items-center gap-2 px-6 py-3 rounded-full bg-[#0071e3] text-white font-semibold text-sm">
-        立即生成卡片
+        {isZh ? '立即生成卡片' : 'Create my card'}
       </a>
     </div>
   );
 }
 
 function ErrorState({ message }: { message: string }) {
+  const isZh = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language);
   return (
     <div className="max-w-4xl mx-auto w-full px-4 pt-16 text-center text-[#94a3b8]">
       <div className="text-4xl mb-3">😵</div>
-      <p className="text-lg font-medium">排行榜加载失败</p>
+      <p className="text-lg font-medium">{isZh ? '排行榜加载失败' : 'Failed to load leaderboard'}</p>
       <p className="mt-1 text-sm">{message}</p>
       <button
         type="button"
         onClick={() => window.location.reload()}
         className="mt-4 px-6 py-2 rounded-full border border-[#dbe4ff] text-sm font-medium hover:bg-[#f8fbff]"
       >
-        重新加载
+        {isZh ? '重新加载' : 'Reload'}
       </button>
     </div>
   );

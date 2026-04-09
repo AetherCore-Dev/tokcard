@@ -6,9 +6,7 @@ import {
   formatTokens,
   type DecodedSharedCard,
 } from '@/lib/card';
-import { getAchievements } from '@/lib/achievements';
-import { fetchShareMetrics, getMetricsIdFromPayload, trackShareMetric, type ShareMetrics } from '@/lib/metrics';
-import { getRegionLabel } from '@/lib/leaderboard';
+import { getMetricsIdFromPayload, trackShareMetric } from '@/lib/metrics';
 import { getRankTier } from '@/lib/titles';
 
 interface RankSummary {
@@ -35,21 +33,6 @@ function decodeStoredPayload(value: Record<string, unknown>) {
   return decoded ? { encoded, decoded } : null;
 }
 
-function getLinkMeta(url: string) {
-  try {
-    const parsed = new URL(url);
-    return {
-      host: parsed.hostname.replace(/^www\./, ''),
-      display: `${parsed.hostname.replace(/^www\./, '')}${parsed.pathname === '/' ? '' : parsed.pathname}`,
-    };
-  } catch {
-    return {
-      host: url,
-      display: url,
-    };
-  }
-}
-
 export default function SharedCardLanding() {
   const [shared, setShared] = useState<DecodedSharedCard | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'invalid'>('loading');
@@ -57,7 +40,6 @@ export default function SharedCardLanding() {
   const [origin, setOrigin] = useState('');
   const [encodedPayload, setEncodedPayload] = useState('');
   const [metricsId, setMetricsId] = useState('');
-  const [metrics, setMetrics] = useState<ShareMetrics | null>(null);
   const [cardId, setCardId] = useState('');
   const [rankSummary, setRankSummary] = useState<RankSummary | null>(null);
   const [cardScale, setCardScale] = useState(0.66);
@@ -156,31 +138,18 @@ export default function SharedCardLanding() {
   }, [encodedPayload]);
 
   useEffect(() => {
-    let cancelled = false;
-
     if (!shared || !metricsId || !encodedPayload) {
       return;
     }
 
     const trackedKey = `tokcard:tracked-view:${metricsId}`;
-    let alreadyTracked = false;
 
     try {
-      alreadyTracked = window.sessionStorage.getItem(trackedKey) === '1';
+      if (window.sessionStorage.getItem(trackedKey) === '1') {
+        return;
+      }
     } catch {
-      alreadyTracked = false;
-    }
-
-    if (alreadyTracked) {
-      void fetchShareMetrics(metricsId).then((existingMetrics) => {
-        if (!cancelled && existingMetrics) {
-          setMetrics(existingMetrics);
-        }
-      });
-
-      return () => {
-        cancelled = true;
-      };
+      // ignore session storage failures
     }
 
     void trackShareMetric({
@@ -192,30 +161,13 @@ export default function SharedCardLanding() {
         username: shared.card.username,
         platform: shared.card.platform,
       },
-    }).then(async (currentMetrics) => {
-      if (cancelled) {
-        return;
-      }
-
-      if (currentMetrics) {
-        try {
-          window.sessionStorage.setItem(trackedKey, '1');
-        } catch {
-          // ignore session storage failures and keep metrics display working
-        }
-        setMetrics(currentMetrics);
-        return;
-      }
-
-      const existingMetrics = await fetchShareMetrics(metricsId);
-      if (!cancelled && existingMetrics) {
-        setMetrics(existingMetrics);
+    }).finally(() => {
+      try {
+        window.sessionStorage.setItem(trackedKey, '1');
+      } catch {
+        // ignore session storage failures
       }
     });
-
-    return () => {
-      cancelled = true;
-    };
   }, [encodedPayload, metricsId, shared]);
 
   useEffect(() => {
@@ -260,10 +212,9 @@ export default function SharedCardLanding() {
     };
   }, [cardId]);
 
-  const isZh = shared?.card.locale !== 'en';
-  const linkMeta = useMemo(() => (shared ? getLinkMeta(shared.targetUrl) : null), [shared]);
+  const browserIsZh = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language);
+  const isZh = shared ? shared.card.locale !== 'en' : browserIsZh;
   const rankTier = useMemo(() => (shared ? getRankTier(shared.card.totalTokens) : null), [shared]);
-  const achievements = useMemo(() => (shared ? getAchievements(shared.card) : []), [shared]);
   const featuredProjects = useMemo(
     () => shared?.card.projects.filter((project) => project.name && project.url) ?? [],
     [shared]
@@ -272,9 +223,10 @@ export default function SharedCardLanding() {
     shared && origin ? buildCreateFromTemplateUrl(shared.card, origin) : '/create'
   ), [origin, shared]);
   const topProject = featuredProjects[0];
+  const extraProjects = featuredProjects.slice(1, 3);
   const rankUrl = cardId ? `/rank?focus=${cardId}` : '/rank';
-  const companyRankUrl = shared?.card.company ? `/rank?company=${encodeURIComponent(shared.card.company)}` : '';
-  const regionRankUrl = shared?.card.region ? `/rank?region=${encodeURIComponent(shared.card.region)}` : '';
+  const primaryProjectUrl = topProject?.url ?? shared?.targetUrl ?? '';
+  const primaryProjectLabel = topProject?.name || (isZh ? '项目主页' : 'Project');
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -308,7 +260,7 @@ export default function SharedCardLanding() {
       return;
     }
 
-    const currentMetrics = await trackShareMetric({
+    await trackShareMetric({
       event,
       metricsId,
       payload: encodedPayload,
@@ -318,24 +270,20 @@ export default function SharedCardLanding() {
         platform: shared.card.platform,
       },
     });
-
-    if (currentMetrics) {
-      setMetrics(currentMetrics);
-    }
   };
 
   if (status === 'loading') {
     return (
       <main className="min-h-screen bg-[#f6f8ff] text-[#1d1d1f] flex items-center justify-center px-6">
         <div className="text-center">
-          <div className="text-2xl font-semibold tracking-tight">Loading shared TokCard…</div>
-          <p className="mt-3 text-sm text-[#6b7280]">Preparing the shared card.</p>
+          <div className="text-2xl font-semibold tracking-tight">{browserIsZh ? '加载中…' : 'Loading…'}</div>
+          <p className="mt-3 text-sm text-[#6b7280]">{browserIsZh ? '正在准备卡片' : 'Preparing the shared card'}</p>
         </div>
       </main>
     );
   }
 
-  if (status === 'invalid' || !shared || !linkMeta) {
+  if (status === 'invalid' || !shared) {
     return (
       <main className="min-h-screen bg-[#f6f8ff] text-[#1d1d1f] flex items-center justify-center px-6">
         <div className="max-w-lg rounded-[32px] border border-[#dbe4ff] bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] text-center">
@@ -343,12 +291,20 @@ export default function SharedCardLanding() {
           <p className="mt-4 text-sm leading-6 text-[#6b7280]">
             {isZh ? '你仍然可以生成一张属于自己的 TokCard。' : 'You can still generate your own TokCard.'}
           </p>
-          <a
-            href="/create"
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-[#0071e3] px-6 py-3 text-white font-semibold shadow-lg shadow-[#0071e3]/20"
-          >
-            {isZh ? '立即生成我的卡片' : 'Create my TokCard'}
-          </a>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <a
+              href="/"
+              className="inline-flex items-center justify-center rounded-full border border-[#dbe4ff] bg-white px-6 py-3 text-[#1d1d1f] font-medium"
+            >
+              {isZh ? '返回首页' : 'Go to homepage'}
+            </a>
+            <a
+              href="/create"
+              className="inline-flex items-center justify-center rounded-full bg-[#0071e3] px-6 py-3 text-white font-semibold shadow-lg shadow-[#0071e3]/20"
+            >
+              {isZh ? '立即生成我的卡片' : 'Create my TokCard'}
+            </a>
+          </div>
         </div>
       </main>
     );
@@ -360,13 +316,18 @@ export default function SharedCardLanding() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between gap-4 text-sm">
           <a href="/" className="text-xl font-semibold tracking-tight text-[#1d1d1f]">TokCard</a>
-          <button
-            type="button"
-            onClick={handleShareCard}
-            className="rounded-full border border-[#dbe4ff] bg-white px-4 py-2 text-xs font-medium text-[#64748b] shadow-sm hover:bg-[#f8fbff]"
-          >
-            {isZh ? '转发' : 'Share'}
-          </button>
+          <div className="flex items-center gap-2">
+            <a href="/" className="rounded-full border border-[#dbe4ff] bg-white px-4 py-2 text-xs font-medium text-[#64748b] shadow-sm hover:bg-[#f8fbff]">
+              {isZh ? '首页' : 'Home'}
+            </a>
+            <button
+              type="button"
+              onClick={handleShareCard}
+              className="rounded-full border border-[#dbe4ff] bg-white px-4 py-2 text-xs font-medium text-[#64748b] shadow-sm hover:bg-[#f8fbff]"
+            >
+              {isZh ? '转发' : 'Share'}
+            </button>
+          </div>
         </div>
 
         {/* 1. Card preview */}
@@ -384,6 +345,12 @@ export default function SharedCardLanding() {
           <span>{isZh ? '的 AI 战绩' : "'s AI stats"}</span>
           <span className="text-[#cbd5e1]">·</span>
           <span>{formatTokens(shared.card.totalTokens)} tokens</span>
+          {rankSummary?.globalRank && (
+            <>
+              <span className="text-[#cbd5e1]">·</span>
+              <span>{isZh ? `全球第 #${rankSummary.globalRank} 名` : `Global rank #${rankSummary.globalRank}`}</span>
+            </>
+          )}
           {rankTier && (
             <>
               <span className="text-[#cbd5e1]">·</span>
@@ -394,127 +361,47 @@ export default function SharedCardLanding() {
           )}
         </div>
 
-        {rankSummary && (
-          <div className="mt-5 rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '排名位置' : 'Ranking snapshot'}</div>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MetricPill label={isZh ? '全球' : 'Global'} value={`#${rankSummary.globalRank}`} />
-              <MetricPill label={isZh ? '同渠道' : 'Channel'} value={rankSummary.channelRank ? `#${rankSummary.channelRank}` : '-'} />
-              <MetricPill label={isZh ? '同地区' : 'Region'} value={rankSummary.regionRank ? `#${rankSummary.regionRank}` : '-'} />
-              <MetricPill label={isZh ? '百分位' : 'Percentile'} value={`Top ${rankSummary.percentile}%`} />
+        <div className="mt-6 rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '快速入口' : 'Quick actions'}</div>
+          <div className="mt-3 grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <a
+                href={rankUrl}
+                className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
+              >
+                {isZh ? '查看 Token 排名' : 'See token ranking'}
+              </a>
+              {primaryProjectUrl && (
+                <a
+                  href={primaryProjectUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => { void handleTrackMetric('share:click_destination'); }}
+                  className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#c7ddff] bg-[linear-gradient(135deg,#eef5ff_0%,#ffffff_100%)] font-semibold text-[#0f172a] shadow-sm shadow-[#0071e3]/10 hover:border-[#0071e3]"
+                >
+                  {isZh ? `打开项目：${primaryProjectLabel}` : `Open project: ${primaryProjectLabel}`}
+                </a>
+              )}
             </div>
-            {(shared.card.company || shared.card.region) && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {shared.card.company && companyRankUrl && (
-                  <a href={companyRankUrl} className="inline-flex min-h-10 items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-4 text-sm font-medium text-[#334155] hover:border-[#0071e3]">
-                    {isZh ? `查看 ${shared.card.company} 排行` : `See ${shared.card.company} ranking`}
+            {extraProjects.length > 0 && (
+              <div id="projects" className="flex flex-wrap gap-2 pt-1">
+                {extraProjects.map((project) => (
+                  <a
+                    key={project.id}
+                    href={project.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => { void handleTrackMetric('share:click_destination'); }}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-2 text-xs font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
+                  >
+                    <span>{project.icon}</span>
+                    <span className="truncate">{project.name}</span>
                   </a>
-                )}
-                {shared.card.region && regionRankUrl && (
-                  <a href={regionRankUrl} className="inline-flex min-h-10 items-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569] hover:border-[#0071e3]">
-                    {isZh ? `查看 ${getRegionLabel(shared.card.region)} 地区排行` : `See ${getRegionLabel(shared.card.region)} ranking`}
-                  </a>
-                )}
+                ))}
               </div>
             )}
           </div>
-        )}
-
-        {/* 3. Primary CTA */}
-        <a
-          href={createUrl}
-          onClick={() => { void handleTrackMetric('share:clone'); }}
-          className="mt-6 flex items-center justify-center w-full py-4 rounded-full bg-[#0071e3] text-white font-semibold text-lg shadow-[0_18px_40px_rgba(0,113,227,0.28)]"
-        >
-          {isZh ? '我也要做一张' : 'Make mine'}
-        </a>
-
-        {/* 4. Secondary CTA */}
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <a
-            href={shared.targetUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => { void handleTrackMetric('share:click_destination'); }}
-            className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#c7ddff] bg-[linear-gradient(135deg,#eef5ff_0%,#ffffff_100%)] font-semibold text-[#0f172a] shadow-sm shadow-[#0071e3]/10 hover:border-[#0071e3]"
-          >
-            {isZh ? '打开作者链接' : 'Open creator link'}
-          </a>
-          <a
-            href={rankUrl}
-            className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
-          >
-            {isZh ? '查看他的排行' : 'See ranking'}
-          </a>
         </div>
-
-        {topProject && (
-          <a
-            href={topProject.url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
-          >
-            {isZh ? `去看项目：${topProject.name}` : `Open project: ${topProject.name}`}
-          </a>
-        )}
-
-        {/* 5. Projects section */}
-        {featuredProjects.length > 0 && (
-          <div id="projects" className="mt-6 rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '项目发现区' : 'Project discovery'}</div>
-                <div className="mt-2 text-xl font-semibold text-[#111827]">{isZh ? `看看 @${shared?.card.username} 在做什么` : `See what @${shared?.card.username} is building`}</div>
-              </div>
-              <div className="text-xs text-[#64748b]">{featuredProjects.length} {isZh ? '个入口' : 'links'}</div>
-            </div>
-            <div className="mt-4 grid gap-3">
-              {featuredProjects.map((project) => (
-                <a
-                  key={project.id}
-                  href={project.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4 transition hover:border-[#0071e3] hover:bg-white"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-lg shadow-sm">
-                      {project.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-[#111827]">{project.name}</div>
-                      <div className="mt-1 text-xs text-[#64748b] break-all">{project.url}</div>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 6. Simplified metrics */}
-        {metrics && (
-          <div className="mt-4 flex items-center gap-6 text-sm text-[#6b7280]">
-            <span>{metrics.views} {isZh ? '次查看' : 'views'}</span>
-            <span>{metrics.clicks} {isZh ? '次点击' : 'clicks'}</span>
-            <span>{metrics.clones} {isZh ? '人做了同款' : 'clones'}</span>
-          </div>
-        )}
-
-        {/* Achievements */}
-        {achievements.length > 0 && (
-          <div className="mt-5">
-            <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '这张卡解锁的成就' : 'Unlocked achievements'}</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {achievements.map((achievement) => (
-                <div key={achievement.id} className="rounded-full border border-[#dbe4ff] bg-white px-4 py-2 text-xs font-medium text-[#334155] shadow-sm">
-                  {achievement.icon} {isZh ? achievement.label : achievement.labelEn}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 7. Sticky bottom bar */}
@@ -527,11 +414,6 @@ export default function SharedCardLanding() {
           >
             {isZh ? '我也要做一张' : 'Make mine'}
           </a>
-          {metrics && metrics.clones > 0 && (
-            <div className="mt-2 text-center text-xs text-[#6b7280]">
-              {isZh ? `已有 ${metrics.clones} 人用了同款模板` : `${metrics.clones} people used this template`}
-            </div>
-          )}
         </div>
       </div>
 
@@ -542,14 +424,5 @@ export default function SharedCardLanding() {
         </div>
       )}
     </main>
-  );
-}
-
-function MetricPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-[#111827]">{value}</div>
-    </div>
   );
 }

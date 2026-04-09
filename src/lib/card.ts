@@ -49,6 +49,9 @@ export interface CardData {
   metaphorCategory: 'meme' | 'flex' | 'shock' | 'selfMock' | 'scifi' | 'worker';
   locale: 'zh' | 'en';
   projects: FeaturedProject[];
+  primaryProjectName: string;
+  primaryProjectUrl: string;
+  primaryProjectPitch: string;
   referralCode: string;
   trustTier: TrustTier;
   proofSource?: ProofSource;
@@ -95,6 +98,9 @@ interface SharedCardPayloadV1 {
   p: CardData['platform'];
   link: string;
   pr?: FeaturedProject[];
+  ppn?: string; // primaryProjectName
+  ppu?: string; // primaryProjectUrl
+  ppp?: string; // primaryProjectPitch
   ref?: string;
   tr?: TrustTier;
   ps?: ProofSource;
@@ -118,6 +124,9 @@ interface CardTemplatePresetV1 {
   l: CardData['locale'];
   p: CardData['platform'];
   pr?: FeaturedProject[];
+  ppn?: string; // primaryProjectName
+  ppu?: string; // primaryProjectUrl
+  ppp?: string; // primaryProjectPitch
 }
 
 export interface DecodedSharedCard {
@@ -346,6 +355,9 @@ export const DEFAULT_CARD_DATA: CardData = {
   metaphorCategory: 'flex',
   locale: 'zh',
   projects: [],
+  primaryProjectName: '',
+  primaryProjectUrl: '',
+  primaryProjectPitch: '',
   referralCode: '',
   trustTier: 'self-reported',
 };
@@ -457,6 +469,10 @@ export function normalizeFeaturedProjects(projects: FeaturedProject[]): Featured
     .filter((project) => project.name && project.url);
 }
 
+export function getPrimaryProjectUrl(data: Pick<CardData, 'projects'>): string {
+  return normalizeFeaturedProjects(data.projects)[0]?.url ?? '';
+}
+
 export function createEmptyProject(index: number): FeaturedProject {
   return {
     id: `project-${index + 1}`,
@@ -513,7 +529,8 @@ function normalizeAvatarValue(avatarType: CardData['avatarType'], value: string)
 
 
 export function encodeSharedCardPayload(data: CardData): string | null {
-  if (!data.qrcodeUrl.trim()) {
+  const targetUrl = getPrimaryProjectUrl(data);
+  if (!targetUrl) {
     return null;
   }
 
@@ -542,8 +559,11 @@ export function encodeSharedCardPayload(data: CardData): string | null {
     mc: data.metaphorCategory,
     l: data.locale,
     p: data.platform,
-    link: data.qrcodeUrl.trim(),
+    link: targetUrl,
     pr: projects,
+    ppn: data.primaryProjectName,
+    ppu: data.primaryProjectUrl,
+    ppp: data.primaryProjectPitch,
     ref: referralCode,
     tr: data.trustTier,
     ps: data.proofSource,
@@ -610,6 +630,9 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         metaphorCategory: payload.mc ?? DEFAULT_CARD_DATA.metaphorCategory,
         locale: payload.l ?? DEFAULT_CARD_DATA.locale,
         projects: normalizeFeaturedProjects(payload.pr ?? []),
+        primaryProjectName: String(payload.ppn ?? DEFAULT_CARD_DATA.primaryProjectName).slice(0, 64),
+        primaryProjectUrl: String(payload.ppu ?? DEFAULT_CARD_DATA.primaryProjectUrl).slice(0, 512),
+        primaryProjectPitch: String(payload.ppp ?? DEFAULT_CARD_DATA.primaryProjectPitch).slice(0, 200),
         referralCode,
         trustTier,
         proofSource,
@@ -660,6 +683,9 @@ export function encodeCardTemplatePreset(data: CardData): string {
     l: data.locale,
     p: data.platform,
     pr: normalizeFeaturedProjects(data.projects),
+    ppn: data.primaryProjectName,
+    ppu: data.primaryProjectUrl,
+    ppp: data.primaryProjectPitch,
   };
 
   return bytesToBase64Url(new TextEncoder().encode(JSON.stringify(preset)));
@@ -704,6 +730,9 @@ export function decodeCardTemplatePreset(value: string): Partial<CardData> | nul
       locale: preset.l ?? DEFAULT_CARD_DATA.locale,
       platform: preset.p ?? DEFAULT_CARD_DATA.platform,
       projects: normalizeFeaturedProjects(preset.pr ?? []),
+      primaryProjectName: String(preset.ppn ?? DEFAULT_CARD_DATA.primaryProjectName).slice(0, 64),
+      primaryProjectUrl: String(preset.ppu ?? DEFAULT_CARD_DATA.primaryProjectUrl).slice(0, 512),
+      primaryProjectPitch: String(preset.ppp ?? DEFAULT_CARD_DATA.primaryProjectPitch).slice(0, 200),
     };
   } catch {
     return null;

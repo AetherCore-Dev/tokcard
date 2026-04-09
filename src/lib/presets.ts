@@ -3,7 +3,9 @@ import type { CardData } from '@/lib/card';
 export interface CardPreset {
   id: string;
   name: string;
+  nameEn: string;
   description: string;
+  descriptionEn: string;
   emoji: string;
   accent: string;
   defaults: Partial<CardData>;
@@ -13,7 +15,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'claude-heavy',
     name: 'Claude 重度用户',
+    nameEn: 'Claude Power User',
     description: '高压排面，适合展示深度工作流。',
+    descriptionEn: 'Bold presence, great for showcasing deep workflows.',
     emoji: '🟠',
     accent: '#d97706',
     defaults: {
@@ -34,7 +38,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'cursor-warrior',
     name: 'Cursor 编码战神',
+    nameEn: 'Cursor Code Warrior',
     description: '代码型表达，更适合极客圈分享。',
+    descriptionEn: 'Code-centric style, ideal for dev communities.',
     emoji: '🟣',
     accent: '#22c55e',
     defaults: {
@@ -55,7 +61,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'viral-flex',
     name: '社交爆款款',
+    nameEn: 'Viral Flex',
     description: '适合朋友圈和小红书，强调记忆点。',
+    descriptionEn: 'Made for social feeds—memorable and shareable.',
     emoji: '🔥',
     accent: '#ec4899',
     defaults: {
@@ -76,7 +84,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'linkedin-builder',
     name: '作品名片款',
+    nameEn: 'Portfolio Card',
     description: '适合作为个人项目名片和商务展示。',
+    descriptionEn: 'Perfect for portfolios and professional intros.',
     emoji: '🧠',
     accent: '#6b7280',
     defaults: {
@@ -97,7 +107,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'cyber-showoff',
     name: '赛博炫技款',
+    nameEn: 'Cyber Showoff',
     description: '视觉更猛，适合强调实验感。',
+    descriptionEn: 'Bold visuals for the experimental vibe.',
     emoji: '⚡',
     accent: '#06b6d4',
     defaults: {
@@ -118,7 +130,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'gemini-explorer',
     name: 'Gemini 探索者',
+    nameEn: 'Gemini Explorer',
     description: '多模型混用，适合全栈 AI 玩家。',
+    descriptionEn: 'Multi-model mix for full-stack AI players.',
     emoji: '🌊',
     accent: '#3b82f6',
     defaults: {
@@ -139,7 +153,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'team-lead',
     name: '团队 Leader',
+    nameEn: 'Team Lead',
     description: '管理视角，展示团队 AI 协作效率。',
+    descriptionEn: 'Management view—showcase team AI efficiency.',
     emoji: '👑',
     accent: '#8b5cf6',
     defaults: {
@@ -160,7 +176,9 @@ export const CARD_PRESETS: CardPreset[] = [
   {
     id: 'indie-hacker',
     name: '独立开发者',
+    nameEn: 'Indie Hacker',
     description: '产品导向，适合展示个人作品集。',
+    descriptionEn: 'Product-focused, ideal for showcasing side projects.',
     emoji: '🚀',
     accent: '#f97316',
     defaults: {
