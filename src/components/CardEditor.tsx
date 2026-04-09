@@ -1273,48 +1273,123 @@ export default function CardEditor() {
               ))}
             </div>
 
-            {/* ===== STEP 1: 你是谁 ===== */}
+            {/* ===== STEP 1: Core Card Information ===== */}
             {step === 1 && (<>
-            <div className="rounded-[24px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[13px] font-semibold uppercase tracking-wide text-[#86868b]">{isZh ? '快速开始' : 'Quick start'}</div>
-                  <div className="mt-1 text-sm text-[#6b7280]">{isZh ? '一键套用热门人设与视觉模板。' : 'Apply a viral persona and visual preset in one tap.'}</div>
-                </div>
-                <div className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#0071e3]">{isZh ? '自动成片' : 'Auto styled'}</div>
-              </div>
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {CARD_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => applyPreset(preset.id)}
-                    className="rounded-2xl border border-[#dbe4ff] bg-white p-3 text-left transition hover:border-[#0071e3] hover:shadow-md group"
-                    style={{ borderLeftWidth: 3, borderLeftColor: preset.accent }}
-                  >
-                    <div className="text-lg leading-none">{preset.emoji}</div>
-                    <div className="mt-2 text-xs font-semibold text-[#1d1d1f] leading-tight">{isZh ? preset.name : preset.nameEn}</div>
-                    <div className="mt-1 text-[10px] leading-4 text-[#94a3b8]">{isZh ? preset.description : preset.descriptionEn}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Username */}
+            {/* Token amount */}
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '用户名' : 'Username'}
+                {isZh ? '总 Token 用量' : 'Total Token Usage'}
               </label>
               <input
                 type="text"
-                value={data.username}
-                onChange={e => updateField('username', e.target.value)}
-                placeholder={isZh ? '你的名字或昵称' : 'Your name or handle'}
-                maxLength={64}
-                className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm ${showValidation && fieldErrors.username ? 'border-red-400' : 'border-[#d2d2d7]'}`}
+                value={tokenInput}
+                onChange={e => handleTokenInput(e.target.value)}
+                placeholder={isZh ? '例如: 2.3B, 500M, 10万' : 'e.g. 2.3B, 500M, 1000000'}
+                className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm ${showValidation && fieldErrors.tokens ? 'border-red-400' : 'border-[#d2d2d7]'}`}
               />
-              <div className="mt-1 text-right text-xs text-[#94a3b8]">{data.username.length}/64</div>
+              {tokenInput.trim() && data.totalTokens <= 0 && (
+                <p className="mt-2 text-xs text-red-500">{isZh ? '无法识别的格式，请用数字或 K/M/B/万 缩写' : 'Unrecognized format. Use numbers or K/M/B suffixes.'}</p>
+              )}
+              <p className="mt-2 text-xs text-[#86868b]">
+                {isZh ? '支持 K/M/B/万 缩写，如 2.3B = 23 亿' : 'Supports K/M/B suffixes, e.g. 2.3B = 2,300,000,000'}
+              </p>
+              {data.totalTokens > 0 && rankTier && (
+                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-2 text-xs font-medium text-[#334155]">
+                  <span>{rankTier.badge}</span>
+                  <span>
+                    {isZh ? `当前等级：${rankTier.label} · ${rankTier.clubLabel}` : `Current tier: ${rankTier.labelEn} · ${rankTier.clubLabelEn}`}
+                  </span>
+                </div>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {([
+                  { label: '轻度玩家', labelEn: 'Casual', value: '10M' },
+                  { label: '中度用户', labelEn: 'Regular', value: '120M' },
+                  { label: '重度开发者', labelEn: 'Heavy', value: '500M' },
+                  { label: '骨灰级', labelEn: 'Power User', value: '2.3B' },
+                ] as const).map((preset) => (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => handleTokenInput(preset.value)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                      tokenInput === preset.value
+                        ? 'border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3]'
+                        : 'border-[#dbe4ff] bg-white text-[#334155] hover:border-[#0071e3] hover:text-[#0071e3]'
+                    }`}
+                  >
+                    {isZh ? preset.label : preset.labelEn} ({preset.value})
+                  </button>
+                ))}
+              </div>
+              <details className="mt-3 text-xs text-[#6b7280]">
+                <summary className="cursor-pointer text-[#0071e3] hover:underline">
+                  {isZh ? '去哪里查 token 用量？' : 'Where to find your token usage?'}
+                </summary>
+                <div className="mt-2 space-y-1 pl-2 border-l-2 border-[#dbe4ff]">
+                  <div><strong>Claude:</strong> {isZh ? 'Settings → Usage' : 'Settings → Usage'}</div>
+                  <div><strong>GPT:</strong> {isZh ? 'Usage dashboard（platform.openai.com/usage）' : 'Usage dashboard (platform.openai.com/usage)'}</div>
+                  <div><strong>Cursor:</strong> {isZh ? 'Account → Usage' : 'Account → Usage'}</div>
+                </div>
+              </details>
             </div>
+
+            {/* Primary Project */}
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '主项目名称' : 'Primary Project Name'}
+              </label>
+              <input
+                type="text"
+                value={data.primaryProjectName}
+                onChange={e => updateField('primaryProjectName', e.target.value)}
+                placeholder={isZh ? '例如：TokCard' : 'e.g. TokCard'}
+                maxLength={64}
+                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+              />
+              <div className="mt-1 text-right text-xs text-[#94a3b8]">{data.primaryProjectName.length}/64</div>
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '主项目 URL' : 'Primary Project URL'}
+              </label>
+              <input
+                type="url"
+                value={data.primaryProjectUrl}
+                onChange={e => updateField('primaryProjectUrl', e.target.value)}
+                placeholder={isZh ? '例如：https://tokcard.dev' : 'e.g. https://tokcard.dev'}
+                maxLength={512}
+                className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm ${showValidation && fieldErrors.project ? 'border-red-400' : 'border-[#d2d2d7]'}`}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '主项目一句话介绍' : 'Primary Project Pitch'}
+              </label>
+              <input
+                type="text"
+                value={data.primaryProjectPitch}
+                onChange={e => updateField('primaryProjectPitch', e.target.value)}
+                placeholder={isZh ? '例如：用 AI 打造的可信战绩展示平台' : 'e.g. A trusted proof platform for AI-powered builders'}
+                maxLength={200}
+                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+              />
+              <div className="mt-1 text-right text-xs text-[#94a3b8]">{data.primaryProjectPitch.length}/200</div>
+            </div>
+
+            {/* Step 1 navigation — desktop only, mobile uses sticky bar */}
+            <div className="hidden lg:flex gap-3 mt-6">
+              <button type="button" onClick={() => setStep(step + 1)}
+                className="flex-1 px-6 py-3.5 rounded-xl bg-[#0071e3] text-white font-semibold shadow-lg shadow-[#0071e3]/20 hover:opacity-95">
+                {isZh ? '预览并导出' : 'Preview & Export'}
+              </button>
+            </div>
+            </>)}
+
+            {/* ===== STEP 2: Preview and Export ===== */}
+            {step === 2 && (<>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -1424,6 +1499,51 @@ export default function CardEditor() {
               </div>
             </div>
 
+            {/* Primary Project */}
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '主项目名称' : 'Primary Project Name'}
+              </label>
+              <input
+                type="text"
+                value={data.primaryProjectName}
+                onChange={e => updateField('primaryProjectName', e.target.value)}
+                placeholder={isZh ? '例如：TokCard' : 'e.g. TokCard'}
+                maxLength={64}
+                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+              />
+              <div className="mt-1 text-right text-xs text-[#94a3b8]">{data.primaryProjectName.length}/64</div>
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '主项目 URL' : 'Primary Project URL'}
+              </label>
+              <input
+                type="url"
+                value={data.primaryProjectUrl}
+                onChange={e => updateField('primaryProjectUrl', e.target.value)}
+                placeholder={isZh ? '例如：https://tokcard.dev' : 'e.g. https://tokcard.dev'}
+                maxLength={512}
+                className={`w-full px-4 py-3.5 bg-white border rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm ${showValidation && fieldErrors.project ? 'border-red-400' : 'border-[#d2d2d7]'}`}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '主项目一句话介绍' : 'Primary Project Pitch'}
+              </label>
+              <input
+                type="text"
+                value={data.primaryProjectPitch}
+                onChange={e => updateField('primaryProjectPitch', e.target.value)}
+                placeholder={isZh ? '例如：用 AI 打造的可信战绩展示平台' : 'e.g. A trusted proof platform for AI-powered builders'}
+                maxLength={200}
+                className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+              />
+              <div className="mt-1 text-right text-xs text-[#94a3b8]">{data.primaryProjectPitch.length}/200</div>
+            </div>
+
             {/* Step 1 navigation — desktop only, mobile uses sticky bar */}
             <div className="hidden lg:flex gap-3 mt-6">
               <button type="button" onClick={() => setStep(step + 1)}
@@ -1435,36 +1555,6 @@ export default function CardEditor() {
 
             {/* ===== STEP 2: 卡片风格 ===== */}
             {step === 2 && (<>
-            {/* Theme */}
-            <div>
-              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '卡片主题' : 'Card Theme'}
-              </label>
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-                {([
-                  { value: 'brand-light', label: isZh ? '晨曦白' : 'Dawn White', preview: 'bg-[#fbfbfd] border-[#d2d2d7]' },
-                  { value: 'brand-dark', label: isZh ? '午夜紫' : 'Midnight Violet', preview: 'bg-[#0f0f12] border-purple-500' },
-                  { value: 'bold-violet', label: isZh ? '高亮紫' : 'Bold Violet', preview: 'bg-purple-700 border-amber-500' },
-                  { value: 'mono-brutal', label: isZh ? '粗野黑白' : 'Mono Brutal', preview: 'bg-white border-black border-2' },
-                  { value: 'terminal-green', label: isZh ? '黑客帝国' : 'Terminal Green', preview: 'bg-[#07130c] border-green-500' },
-                  { value: 'cyberpunk-neon', label: isZh ? '赛博霓虹' : 'Cyberpunk Neon', preview: 'bg-fuchsia-700 border-cyan-300' },
-                  { value: 'gradient-dream', label: isZh ? '梦幻渐变' : 'Gradient Dream', preview: 'bg-gradient-to-r from-blue-500 via-violet-500 to-pink-500 border-white/30' },
-                  { value: 'sunset-warm', label: isZh ? '暖阳橙' : 'Sunset Warm', preview: 'bg-orange-700 border-amber-300' },
-                  { value: 'ocean-blue', label: isZh ? '深海蓝' : 'Ocean Blue', preview: 'bg-sky-950 border-sky-400' },
-                  { value: 'minimal-gray', label: isZh ? '极简灰' : 'Minimal Gray', preview: 'bg-gray-100 border-gray-300' },
-                ] as const).map(theme => (
-                  <button type="button"
-                    key={theme.value}
-                    onClick={() => updateField('theme', theme.value)}
-                    className={`p-3 rounded-xl border-2 transition-all text-left ${data.theme === theme.value ? 'border-[#0071e3] bg-[#0071e3]/5 ring-4 ring-[#0071e3]/10' : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'}`}
-                  >
-                    <div className={`w-full h-8 rounded-lg mb-2 ${theme.preview} border`} />
-                    <span className="text-sm font-medium text-[#1d1d1f]">{theme.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Platform */}
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
@@ -1596,10 +1686,10 @@ export default function CardEditor() {
               >
                 <div>
                   <span className="text-[13px] font-semibold uppercase tracking-wide text-[#86868b]">
-                    {isZh ? '更多选项' : 'More Options'}
+                    {isZh ? '高级个性化' : 'Advanced Personalization'}
                   </span>
                   <span className="ml-2 text-xs text-[#94a3b8]">
-                    {isZh ? '头像、背景、比喻、项目名片等' : 'Avatar, background, metaphor, projects, etc.'}
+                    {isZh ? '头像、主题、背景、比喻、签名、链接等' : 'Avatar, theme, background, metaphor, slogan, links, etc.'}
                   </span>
                 </div>
                 <span className={`text-[#86868b] transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▼</span>
@@ -1787,6 +1877,36 @@ export default function CardEditor() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Theme */}
+            <div>
+              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                {isZh ? '卡片主题' : 'Card Theme'}
+              </label>
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                {([
+                  { value: 'brand-light', label: isZh ? '晨曦白' : 'Dawn White', preview: 'bg-[#fbfbfd] border-[#d2d2d7]' },
+                  { value: 'brand-dark', label: isZh ? '午夜紫' : 'Midnight Violet', preview: 'bg-[#0f0f12] border-purple-500' },
+                  { value: 'bold-violet', label: isZh ? '高亮紫' : 'Bold Violet', preview: 'bg-purple-700 border-amber-500' },
+                  { value: 'mono-brutal', label: isZh ? '粗野黑白' : 'Mono Brutal', preview: 'bg-white border-black border-2' },
+                  { value: 'terminal-green', label: isZh ? '黑客帝国' : 'Terminal Green', preview: 'bg-[#07130c] border-green-500' },
+                  { value: 'cyberpunk-neon', label: isZh ? '赛博霓虹' : 'Cyberpunk Neon', preview: 'bg-fuchsia-700 border-cyan-300' },
+                  { value: 'gradient-dream', label: isZh ? '梦幻渐变' : 'Gradient Dream', preview: 'bg-gradient-to-r from-blue-500 via-violet-500 to-pink-500 border-white/30' },
+                  { value: 'sunset-warm', label: isZh ? '暖阳橙' : 'Sunset Warm', preview: 'bg-orange-700 border-amber-300' },
+                  { value: 'ocean-blue', label: isZh ? '深海蓝' : 'Ocean Blue', preview: 'bg-sky-950 border-sky-400' },
+                  { value: 'minimal-gray', label: isZh ? '极简灰' : 'Minimal Gray', preview: 'bg-gray-100 border-gray-300' },
+                ] as const).map(theme => (
+                  <button type="button"
+                    key={theme.value}
+                    onClick={() => updateField('theme', theme.value)}
+                    className={`p-3 rounded-xl border-2 transition-all text-left ${data.theme === theme.value ? 'border-[#0071e3] bg-[#0071e3]/5 ring-4 ring-[#0071e3]/10' : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'}`}
+                  >
+                    <div className={`w-full h-8 rounded-lg mb-2 ${theme.preview} border`} />
+                    <span className="text-sm font-medium text-[#1d1d1f]">{theme.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>

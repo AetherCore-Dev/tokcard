@@ -92,8 +92,8 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   if [[ "$TOOL" == "amp" ]]; then
     OUTPUT=$(amp --dangerously-allow-all "$(< "$SCRIPT_DIR/prompt.md")" 2>&1) || true
   else
-    # Claude Code Internal: use --dangerously-skip-permissions for autonomous operation, --print for output
-    OUTPUT=$($CLAUDE_CMD --dangerously-skip-permissions --print "$(< "$SCRIPT_DIR/CLAUDE.md")" 2>&1) || true
+    # Claude Code Internal: use a fresh non-interactive session with bypassed permissions
+    OUTPUT=$($CLAUDE_CMD --print --permission-mode bypassPermissions --no-session-persistence "$(< "$SCRIPT_DIR/CLAUDE.md")" 2>&1) || true
   fi
 
   if [[ -n "$OUTPUT" ]]; then
