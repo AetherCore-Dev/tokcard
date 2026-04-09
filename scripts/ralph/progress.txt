@@ -31,3 +31,17 @@ Started: Thu Apr  9 15:04:49     2026
   - Advanced settings are properly organized in a collapsible section
   - Build system validates all changes automatically
 ---
+
+## 2026-04-09 20:28 - US-003
+- Verified AI pitch generation already fully implemented
+- API endpoint `/api/generate-pitch` uses URL metadata context with fallback to project name
+- Returns exactly 3 candidate pitches per generation
+- Chinese pitches limited to 24 chars, English to 12 words
+- Pitches emphasize user value, speed, scale, ambition, results (built into prompt)
+- UI allows apply candidate, regenerate (same button), and manual edit
+- Files changed: None (existing implementation verified as complete)
+- **Learnings for future iterations:**
+  - URL metadata fetching already blocks private IPs and localhost for security
+  - Rate limiting and CORS protection already in place on API
+  - ParseAIOptions utility handles multiple output formats safely
+---
