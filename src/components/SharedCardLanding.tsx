@@ -223,10 +223,19 @@ export default function SharedCardLanding() {
     shared && origin ? buildCreateFromTemplateUrl(shared.card, origin) : '/create'
   ), [origin, shared]);
   const topProject = featuredProjects[0];
-  const extraProjects = featuredProjects.slice(1, 3);
   const rankUrl = cardId ? `/rank?focus=${cardId}` : '/rank';
-  const primaryProjectUrl = topProject?.url ?? shared?.targetUrl ?? '';
-  const primaryProjectLabel = topProject?.name || (isZh ? '项目主页' : 'Project');
+  const primaryProjectName = shared?.card.primaryProjectName?.trim() || topProject?.name || (isZh ? '未命名项目' : 'Untitled project');
+  const primaryProjectPitch = shared?.card.primaryProjectPitch?.trim() || shared?.card.slogan?.trim() || (isZh ? '这位开发者正在用 AI 推进一个项目。' : 'This builder is using AI to push a project forward.');
+  const primaryProjectUrl = (shared?.card.primaryProjectUrl?.trim()) || topProject?.url || shared?.targetUrl || '';
+  const secondaryProjects = featuredProjects.filter((project) => project.url !== primaryProjectUrl || project.name !== primaryProjectName).slice(0, 3);
+  const projectHost = (() => {
+    if (!primaryProjectUrl) return '';
+    try {
+      return new URL(primaryProjectUrl).hostname.replace(/^www\./, '');
+    } catch {
+      return primaryProjectUrl.replace(/^https?:\/\//, '').split('/')[0] || '';
+    }
+  })();
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -339,53 +348,50 @@ export default function SharedCardLanding() {
           </div>
         </section>
 
-        {/* 2. One-line summary */}
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-sm text-[#6b7280]">
-          <span className="font-semibold text-[#1d1d1f]">@{shared.card.username || (isZh ? '开发者' : 'builder')}</span>
-          <span>{isZh ? '的 AI 战绩' : "'s AI stats"}</span>
-          <span className="text-[#cbd5e1]">·</span>
-          <span>{formatTokens(shared.card.totalTokens)} tokens</span>
-          {rankSummary?.globalRank && (
-            <>
-              <span className="text-[#cbd5e1]">·</span>
-              <span>{isZh ? `全球第 #${rankSummary.globalRank} 名` : `Global rank #${rankSummary.globalRank}`}</span>
-            </>
-          )}
-          {rankTier && (
-            <>
-              <span className="text-[#cbd5e1]">·</span>
-              <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-3 py-0.5 text-xs font-medium text-[#334155] shadow-sm">
-                {rankTier.badge} {isZh ? rankTier.clubLabel : rankTier.clubLabelEn}
-              </span>
-            </>
-          )}
-        </div>
+        {/* 2. Token -> Project -> Rank summary */}
+        <section className="mt-5 grid gap-3">
+          <div className="rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '1 · Token 战绩' : '1 · Token signal'}</div>
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <div className="text-3xl font-semibold tracking-tight text-[#0f172a]">{formatTokens(shared.card.totalTokens)} tokens</div>
+                <div className="mt-2 text-sm text-[#64748b]">
+                  @{shared.card.username || (isZh ? '开发者' : 'builder')} {isZh ? '本月的 AI 消耗量。' : 'this month in AI usage.'}
+                </div>
+              </div>
+              {rankTier && (
+                <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1 text-xs font-semibold text-[#334155] shadow-sm">
+                  {rankTier.badge} {isZh ? rankTier.clubLabel : rankTier.clubLabelEn}
+                </span>
+              )}
+            </div>
+          </div>
 
-        <div className="mt-6 rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '快速入口' : 'Quick actions'}</div>
-          <div className="mt-3 grid gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <a
-                href={rankUrl}
-                className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
-              >
-                {isZh ? '查看 Token 排名' : 'See token ranking'}
-              </a>
+          <div className="rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '2 · 主项目' : '2 · Main project'}</div>
+            <div className="mt-3 text-2xl font-semibold tracking-tight text-[#0f172a]">{primaryProjectName}</div>
+            <p className="mt-2 text-sm leading-6 text-[#64748b]">{primaryProjectPitch}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {projectHost && (
+                <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1 text-xs font-medium text-[#475569]">
+                  {projectHost}
+                </span>
+              )}
               {primaryProjectUrl && (
                 <a
                   href={primaryProjectUrl}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => { void handleTrackMetric('share:click_destination'); }}
-                  className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#c7ddff] bg-[linear-gradient(135deg,#eef5ff_0%,#ffffff_100%)] font-semibold text-[#0f172a] shadow-sm shadow-[#0071e3]/10 hover:border-[#0071e3]"
+                  className="inline-flex items-center rounded-full border border-[#c7ddff] bg-[linear-gradient(135deg,#eef5ff_0%,#ffffff_100%)] px-4 py-2 text-sm font-semibold text-[#0f172a] shadow-sm shadow-[#0071e3]/10 hover:border-[#0071e3]"
                 >
-                  {isZh ? `打开项目：${primaryProjectLabel}` : `Open project: ${primaryProjectLabel}`}
+                  {isZh ? '打开项目' : 'Open project'}
                 </a>
               )}
             </div>
-            {extraProjects.length > 0 && (
-              <div id="projects" className="flex flex-wrap gap-2 pt-1">
-                {extraProjects.map((project) => (
+            {secondaryProjects.length > 0 && (
+              <div id="projects" className="mt-4 flex flex-wrap gap-2">
+                {secondaryProjects.map((project) => (
                   <a
                     key={project.id}
                     href={project.url}
@@ -401,7 +407,48 @@ export default function SharedCardLanding() {
               </div>
             )}
           </div>
-        </div>
+
+          <div className="rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '3 · 排名反馈' : '3 · Rank signal'}</div>
+            {rankSummary ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
+                  <div className="text-xs text-[#94a3b8]">{isZh ? '全球名次' : 'Global rank'}</div>
+                  <div className="mt-1 text-2xl font-semibold tracking-tight text-[#0f172a]">#{rankSummary.globalRank}</div>
+                </div>
+                <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
+                  <div className="text-xs text-[#94a3b8]">{isZh ? '超过用户' : 'Ahead of'}</div>
+                  <div className="mt-1 text-2xl font-semibold tracking-tight text-[#0f172a]">{Math.max(0, 100 - rankSummary.percentile)}%</div>
+                </div>
+                <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
+                  <div className="text-xs text-[#94a3b8]">{isZh ? '当前档位' : 'Tier'}</div>
+                  <div className="mt-1 text-lg font-semibold tracking-tight text-[#0f172a]">{rankTier ? `${rankTier.badge} ${isZh ? rankTier.label : rankTier.labelEn}` : '--'}</div>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-[#64748b]">
+                {rankTier
+                  ? (isZh ? '这张卡已经带上档位信号。排行榜数据同步后，会在这里显示更明确的位置。' : 'This card already carries a tier signal. A clearer leaderboard position will appear here once ranking data syncs.')
+                  : (isZh ? '这张卡暂时还没有可显示的排行数据。' : 'This card does not have ranking data to show yet.')}
+              </p>
+            )}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <a
+                href={rankUrl}
+                className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
+              >
+                {isZh ? '查看 Token 排名' : 'See token ranking'}
+              </a>
+              <a
+                href={createUrl}
+                onClick={() => { void handleTrackMetric('share:clone'); }}
+                className="flex items-center justify-center w-full py-3.5 rounded-full bg-[#0071e3] font-semibold text-white shadow-lg shadow-[#0071e3]/20"
+              >
+                {isZh ? '我也要做一张' : 'Make mine'}
+              </a>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* 7. Sticky bottom bar */}

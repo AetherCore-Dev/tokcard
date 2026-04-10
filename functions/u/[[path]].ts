@@ -1,4 +1,3 @@
-import type { Handler } from '@cloudflare/workers-types';
 
 const CARD_KEY_PREFIX = 'tokcard:card:';
 
@@ -9,6 +8,9 @@ interface StoredCard {
   t?: number;    // totalTokens
   c?: string;    // channel
   th?: string;   // theme
+  l?: string;    // locale
+  ppn?: string;  // primaryProjectName
+  ppp?: string;  // primaryProjectPitch
   [key: string]: unknown;
 }
 
@@ -64,19 +66,27 @@ function isCrawler(userAgent: string): boolean {
   return crawlerPatterns.some((pattern) => ua.includes(pattern));
 }
 
+function stripMetaTag(html: string, attribute: 'property' | 'name', prefix: string): string {
+  const quotePattern = `["']`;
+  const valuePattern = `${quotePattern}${prefix}[^"']*${quotePattern}`;
+  return html.replace(new RegExp(`<meta\\b[^>]*\\b${attribute}\\s*=\\s*${valuePattern}[^>]*>`, 'gi'), '');
+}
+
 function injectOgMeta(html: string, card: StoredCard, cardId: string, requestUrl: string): string {
   const username = escapeHtml(String(card.u || 'TokCard User'));
   const tokens = formatTokens(Number(card.t || 0));
   const slogan = escapeHtml(String(card.s || 'AI builder card'));
+  const primaryProjectName = escapeHtml(String(card.ppn || ''));
+  const primaryProjectPitch = escapeHtml(String(card.ppp || ''));
   const rank = getRankBadge(Number(card.t || 0));
-  const isZh = card.lo !== 'en';
+  const isZh = card.l !== 'en';
 
   const ogTitle = isZh
     ? `${username} 的 AI 战绩卡 · ${tokens} tokens`
     : `${username}'s AI Card · ${tokens} tokens`;
   const ogDescription = isZh
-    ? `${rank} · ${slogan} — 查看 ${username} 的 AI 使用战绩，也生成你的同款卡片。`
-    : `${rank} · ${slogan} — See ${username}'s AI stats and create your own card.`;
+    ? `${rank} · ${primaryProjectName || slogan}${primaryProjectPitch ? ` · ${primaryProjectPitch}` : ''} — 查看 ${username} 的 token、项目和排行。`
+    : `${rank} · ${primaryProjectName || slogan}${primaryProjectPitch ? ` · ${primaryProjectPitch}` : ''} — See ${username}'s tokens, project, and rank.`;
   const origin = new URL(requestUrl).origin;
   const ogImage = `${origin}/api/og-image?id=${cardId}`;
   const ogUrl = `${origin}/u/${cardId}`;
@@ -96,8 +106,8 @@ function injectOgMeta(html: string, card: StoredCard, cardId: string, requestUrl
     <meta name="twitter:image" content="${ogImage}" />`;
 
   // Replace existing OG tags in the HTML
-  let result = html.replace(/<meta property="og:[^"]*" content="[^"]*"\s*\/?>/g, '');
-  result = result.replace(/<meta name="twitter:[^"]*" content="[^"]*"\s*\/?>/g, '');
+  let result = stripMetaTag(html, 'property', 'og:');
+  result = stripMetaTag(result, 'name', 'twitter:');
 
   // Inject new meta tags before </head>
   result = result.replace('</head>', `${metaTags}\n  </head>`);
@@ -105,7 +115,7 @@ function injectOgMeta(html: string, card: StoredCard, cardId: string, requestUrl
   // Update <title> and description
   result = result.replace(/<title>[^<]*<\/title>/, `<title>${ogTitle}</title>`);
   result = result.replace(
-    /<meta name="description" content="[^"]*"\s*\/?>/,
+    /<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/i,
     `<meta name="description" content="${ogDescription}" />`
   );
 
@@ -117,7 +127,7 @@ function injectOgMeta(html: string, card: StoredCard, cardId: string, requestUrl
  * Uses ASSETS binding (Cloudflare Pages) to get the static HTML for the /u page,
  * since /u/abc123 has no static file — only /u/index.html exists.
  */
-async function fetchBaseHtml(context: Parameters<Handler>[0]): Promise<string> {
+async function fetchBaseHtml(context: Parameters<PagesFunction>[0]): Promise<string> {
   const assets = (context.env as Record<string, unknown>).ASSETS as { fetch: typeof fetch } | undefined;
   if (assets) {
     const origin = new URL(context.request.url).origin;
@@ -143,7 +153,7 @@ async function fetchBaseHtml(context: Parameters<Handler>[0]): Promise<string> {
   return `<!doctype html><html><head><title>TokCard</title></head><body><script>window.location.href='/u';</script></body></html>`;
 }
 
-export const onRequest: Handler = async (context) => {
+export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
   const pathParts = url.pathname.split('/').filter(Boolean);
 
@@ -155,7 +165,7 @@ export const onRequest: Handler = async (context) => {
     return context.next();
   }
 
-  const namespace = context.env?.TOKCARD_METRICS as KVNamespace | undefined;
+  const namespace = (context.env as { TOKCARD_METRICS?: KVNamespace }).TOKCARD_METRICS;
   if (!namespace) {
     return context.next();
   }

@@ -276,6 +276,20 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
   const estimatedCost = Math.round(data.totalTokens * 0.000003);
   const now = new Date();
   const featuredProjects = data.projects.filter((project) => project.name && project.url).slice(0, 3);
+  const primaryProjectName = data.primaryProjectName.trim() || featuredProjects[0]?.name || (isZh ? '未命名项目' : 'Untitled project');
+  const primaryProjectPitch = data.primaryProjectPitch.trim() || data.slogan.trim() || (isZh ? '正在用 AI 推进中的项目' : 'An AI-powered project in motion');
+  const primaryProjectUrl = data.primaryProjectUrl.trim() || featuredProjects[0]?.url || '';
+  const primaryProjectDomain = (() => {
+    if (!primaryProjectUrl) return '';
+    try {
+      return new URL(primaryProjectUrl).hostname.replace(/^www\./, '');
+    } catch {
+      return primaryProjectUrl.replace(/^https?:\/\//, '').split('/')[0] || '';
+    }
+  })();
+  const secondaryProjects = featuredProjects
+    .filter((project) => project.url !== primaryProjectUrl || project.name !== primaryProjectName)
+    .slice(0, 2);
   const leadingAchievement = achievements[0];
   const leadingModel = data.modelBreakdown.slice().sort((a, b) => b.percentage - a.percentage)[0];
   const dateStr = now.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -728,35 +742,6 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
           }} />
         </div>
 
-        {featuredProjects.length > 0 && (
-          <div style={{ display: 'flex', gap: 8 * s, flexWrap: 'wrap', marginTop: 14 * s }}>
-            {featuredProjects.map((project) => (
-              <span
-                key={project.id}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6 * s,
-                  padding: `${7 * s}px ${11 * s}px`,
-                  borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
-                  fontSize: 11 * s,
-                  fontWeight: 800,
-                  color: tc.textSecondary,
-                  background: tc.panelBg,
-                  border: `1px solid ${tc.panelBorder}`,
-                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04)`,
-                  maxWidth: 180 * s,
-                }}
-              >
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14 * s, flexShrink: 0, lineHeight: 1 }}>{project.icon || '✨'}</span>
-                {project.displayType !== 'icon' && (
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
-                )}
-              </span>
-            ))}
-          </div>
-        )}
-
         {/* == MAIN BODY == */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 * s, padding: `${10 * s}px 0` }}>
 
@@ -917,6 +902,106 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               </div>
             </div>
           </div>
+
+          <div style={{
+            background: tc.panelBg,
+            border: `1px solid ${tc.panelBorder}`,
+            borderRadius: data.theme === 'mono-brutal' ? 0 : 14 * s,
+            padding: `${14 * s}px ${16 * s}px`,
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04)`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 * s }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 10 * s, fontWeight: 800, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.16em' }}>
+                  {isZh ? '主项目' : 'Main project'}
+                </div>
+                <div style={{ marginTop: 6 * s, fontSize: 24 * s, fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.03em', color: tc.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {primaryProjectName}
+                </div>
+                <div style={{ marginTop: 8 * s, fontSize: 12 * s, lineHeight: 1.6, color: tc.textSecondary }}>
+                  {primaryProjectPitch}
+                </div>
+              </div>
+              {primaryProjectDomain && (
+                <div style={{
+                  flexShrink: 0,
+                  maxWidth: 120 * s,
+                  padding: `${7 * s}px ${10 * s}px`,
+                  borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                  border: `1px solid ${tc.panelBorder}`,
+                  background: tc.barTrack,
+                  fontSize: 10 * s,
+                  fontWeight: 800,
+                  color: tc.textDim,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {primaryProjectDomain}
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: 12 * s, display: 'flex', flexWrap: 'wrap', gap: 8 * s }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5 * s,
+                padding: `${5 * s}px ${10 * s}px`,
+                borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                background: `${rankTier.accent}14`,
+                border: `1px solid ${rankTier.accent}30`,
+                fontSize: 10 * s,
+                fontWeight: 800,
+                color: rankTier.accent,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}>
+                <span>{rankTier.badge}</span>
+                <span>{rankingSignalLabel}</span>
+              </span>
+              {leadingModel && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5 * s,
+                  padding: `${5 * s}px ${10 * s}px`,
+                  borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                  background: tc.barTrack,
+                  border: `1px solid ${tc.panelBorder}`,
+                  fontSize: 10 * s,
+                  fontWeight: 700,
+                  color: tc.textSecondary,
+                }}>
+                  <span>{CHANNEL_ICONS[data.channel] || '⚪'}</span>
+                  <span>{leadingModel.name}</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {secondaryProjects.length > 0 && (
+            <div style={{ display: 'flex', gap: 8 * s, flexWrap: 'wrap' }}>
+              {secondaryProjects.map((project) => (
+                <span
+                  key={project.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6 * s,
+                    padding: `${6 * s}px ${10 * s}px`,
+                    borderRadius: data.theme === 'mono-brutal' ? 0 : 999,
+                    fontSize: 10 * s,
+                    fontWeight: 700,
+                    color: tc.textSecondary,
+                    background: tc.panelBg,
+                    border: `1px solid ${tc.panelBorder}`,
+                    maxWidth: 180 * s,
+                  }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14 * s, flexShrink: 0, lineHeight: 1 }}>{project.icon || '✨'}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* 3 Stats */}
           <div style={{ display: 'flex', gap: 8 * s }}>

@@ -7,6 +7,9 @@ export interface LeaderboardEntry {
   avatarValue: string;
   theme: string;
   projectCount: number;
+  primaryProjectName: string;
+  primaryProjectUrl: string;
+  primaryProjectPitch: string;
   topProject?: {
     name: string;
     url: string;

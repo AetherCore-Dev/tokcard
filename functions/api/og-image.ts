@@ -1,4 +1,3 @@
-import type { Handler } from '@cloudflare/workers-types';
 
 const CARD_KEY_PREFIX = 'tokcard:card:';
 
@@ -40,11 +39,11 @@ interface StoredCard {
   [key: string]: unknown;
 }
 
-export const onRequest: Handler = async (context) => {
+export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
   const id = normalizeCardId(url.searchParams.get('id') || '');
 
-  const namespace = context.env?.TOKCARD_METRICS as KVNamespace | undefined;
+  const namespace = (context.env as { TOKCARD_METRICS?: KVNamespace }).TOKCARD_METRICS;
 
   let card: StoredCard | null = null;
 

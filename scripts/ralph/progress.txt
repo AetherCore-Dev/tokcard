@@ -45,3 +45,40 @@ Started: Thu Apr  9 15:04:49     2026
   - Rate limiting and CORS protection already in place on API
   - ParseAIOptions utility handles multiple output formats safely
 ---
+
+## 2026-04-09 20:30 - US-004 / US-005 / US-006
+- Tightened AI slogan, metaphor, and caption generation around token usage, primary project identity, and ranking context
+- Kept AI outputs compact: 3 candidates, shorter lengths, capped hashtags, and more direct copy
+- Reduced visible presets to 4 curated templates and visible themes to 5 curated themes
+- Finalized curated background swatches and kept custom background upload out of the default create flow
+- Files changed: functions/api/generate-slogan.ts, functions/api/generate-metaphor.ts, functions/api/generate-caption.ts, src/lib/presets.ts, src/components/CardEditor.tsx
+- **Learnings for future iterations:**
+  - Shorter AI prompts and stronger constraints keep generated social copy much more usable
+  - Curated themes/swatches make the editor feel calmer without removing the richer renderer internals
+  - The build is now a better validation path than `tsc` in this repo because TypeScript is not installed directly
+---
+
+## 2026-04-09 20:31 - US-007 / US-008 / US-009 / US-010
+- Reworked CardRenderer and SharedCardLanding so the hierarchy is token first, main project second, rank third
+- Added post-export ranking feedback in the create flow with a focused leaderboard CTA when a card id exists
+- Extended leaderboard entry data with primary project name, URL, and pitch, then redesigned leaderboard rows for project discovery
+- Tightened homepage/showcase copy so the product story consistently centers on token usage, project identity, and ranking
+- Updated share-page OG text to prefer primary project identity over generic slogan-only copy
+- Files changed: src/components/CardRenderer.tsx, src/components/SharedCardLanding.tsx, src/components/Leaderboard.tsx, src/lib/leaderboard.ts, functions/lib/leaderboard.ts, src/pages/index.astro, functions/u/[[path]].ts, src/components/CardEditor.tsx
+- **Learnings for future iterations:**
+  - The leaderboard becomes much more compelling once every row answers both “how much” and “what are they building”
+  - Focused rank links are a low-friction way to connect create, share, and leaderboard flows
+  - Browser-level verification is still pending because the requested dev-browser skill is unavailable in this environment
+---
+
+## 2026-04-10 09:09 - Follow-up review fixes
+- Fixed primary project URL validation so invalid primary URLs no longer override valid fallback project links in shared payload decode and leaderboard records
+- Hardened OG/Twitter meta replacement to be less sensitive to attribute ordering and safer against duplicate injected tags
+- Aligned the documented typecheck flow by installing TypeScript and Cloudflare worker types, then resolving the surfaced strict-type errors
+- Verified both `npx tsc --noEmit` and `npm run build` pass after the fixes
+- Files changed: src/lib/card.ts, functions/lib/leaderboard.ts, functions/u/[[path]].ts, src/components/CardEditor.tsx, tsconfig.json, package.json, package-lock.json, functions/api/*.ts
+- **Learnings for future iterations:**
+  - Installing the declared typecheck toolchain is useful because it exposes real drift that the Astro build alone can miss
+  - Link-priority logic should always validate URLs before promoting one field above a fallback source
+  - Shared-page head injection code should avoid depending on fragile attribute order assumptions
+---

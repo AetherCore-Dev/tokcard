@@ -23,6 +23,9 @@ const heroCard = makeCard({
   theme: 'brand-dark',
   platform: 'wechat',
   metaphorCategory: 'flex',
+  primaryProjectName: 'TokCard',
+  primaryProjectUrl: 'https://tokcard.dev',
+  primaryProjectPitch: '把 token、项目和排行压成一张能传播的卡片',
   projects: [
     { id: 'hero-github', name: 'GitHub', icon: '🐙', url: 'https://github.com', displayType: 'icon+text' },
     { id: 'hero-site', name: 'Portfolio', icon: '🌐', url: 'https://tokcard.dev', displayType: 'icon+text' },
@@ -47,6 +50,9 @@ const showcaseCards: CardData[] = [
     theme: 'gradient-dream',
     platform: 'xiaohongshu',
     metaphorCategory: 'meme',
+    primaryProjectName: 'LaunchKit AI',
+    primaryProjectUrl: 'https://tokcard.dev',
+    primaryProjectPitch: '把产品想法压成能快速上线的 AI 发布套件',
     projects: [
       { id: 'diva-app', name: 'AI App', icon: '📱', url: 'https://tokcard.dev', displayType: 'icon+text' },
       { id: 'diva-ph', name: 'PH', icon: '🚀', url: 'https://tokcard.dev', displayType: 'icon+text' },
@@ -67,6 +73,9 @@ const showcaseCards: CardData[] = [
     theme: 'brand-light',
     platform: 'twitter',
     metaphorCategory: 'worker',
+    primaryProjectName: 'SpecFlow',
+    primaryProjectUrl: 'https://tokcard.dev',
+    primaryProjectPitch: '把 PRD、评审和交付节奏都压进一条 AI 流水线',
     projects: [
       { id: 'pm-site', name: 'Website', icon: '🪪', url: 'https://tokcard.dev', displayType: 'icon+text' },
       { id: 'pm-case', name: 'Case Study', icon: '📊', url: 'https://tokcard.dev', displayType: 'icon+text' },
@@ -157,8 +166,8 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
     <section id="showcase" class="px-6 py-16 max-w-6xl mx-auto w-full border-t border-[#d2d2d7]/40">
       <div class="flex items-end justify-between gap-6 flex-wrap">
         <div>
-          <h2 class="text-3xl md:text-4xl font-semibold tracking-tight">四个核心，一眼看懂。</h2>
-          <p class="mt-2 text-[#6b7280]">晒 token、挂项目、看排名、做一张能被扫码打开的精美名片。</p>
+          <h2 class="text-3xl md:text-4xl font-semibold tracking-tight">三个重点，一眼看懂。</h2>
+          <p class="mt-2 text-[#6b7280]">先看你烧了多少 token，再看你在做什么项目，最后看你排第几。</p>
         </div>
       </div>
 
@@ -204,9 +213,9 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
           <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">看看谁最能烧 token，也顺手看看榜上开发者在做什么项目。</p>
         </div>
         <div class="rounded-[24px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
-          <div class="text-2xl">🎨</div>
-          <div class="mt-3 text-lg font-semibold text-[#1d1d1f]">精美名片</div>
-          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">适配朋友圈、小红书、X 的精美视觉，一张图就把身份、项目和战绩讲清楚。</p>
+          <div class="text-2xl">🔗</div>
+          <div class="mt-3 text-lg font-semibold text-[#1d1d1f]">一张图带走全部</div>
+          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">导出卡片会自带项目入口和分享链接，让 token、项目和排行一起传播。</p>
         </div>
       </div>
       <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -219,7 +228,7 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
     <footer class="px-6 py-8 text-[13px] max-w-6xl mx-auto w-full text-[#86868b] border-t border-[#d2d2d7]/30">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <p>TokCard — 你的 AI 用量，值得一张名片</p>
-        <p>Token 炫耀 · 项目展示 · 排名发现 · 精美名片</p>
+        <p>Token 炫耀 · 项目展示 · 排名发现 · 一张图完成传播</p>
       </div>
     </footer>
   </main>

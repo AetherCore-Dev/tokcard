@@ -1,4 +1,3 @@
-import type { Handler } from '@cloudflare/workers-types';
 import { buildCorsHeaders, handleOptions, jsonResponse, validateOrigin } from '../lib/cors';
 import { checkRateLimit } from '../lib/rate-limit';
 import { buildLeaderboardEntry, upsertLeaderboard } from '../lib/leaderboard';
@@ -28,8 +27,8 @@ function normalizeCardId(value?: string): string {
   return /^[a-z0-9]{4,16}$/.test(normalized) ? normalized : '';
 }
 
-function getNamespace(context: Parameters<Handler>[0]): KVNamespace | undefined {
-  return context.env?.TOKCARD_METRICS as KVNamespace | undefined;
+function getNamespace(context: Parameters<PagesFunction>[0]): KVNamespace | undefined {
+  return (context.env as { TOKCARD_METRICS?: KVNamespace }).TOKCARD_METRICS;
 }
 
 function safeString(value: unknown, maxLen = MAX_STRING_LENGTH): string {
@@ -117,7 +116,7 @@ function buildSafeCardPayload(raw: Record<string, unknown>, id: string): string 
   });
 }
 
-export const onRequest: Handler = async (context) => {
+export const onRequest: PagesFunction = async (context) => {
   const requestOrigin = context.request.headers.get('Origin');
 
   const originError = validateOrigin(requestOrigin);

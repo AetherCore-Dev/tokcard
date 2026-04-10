@@ -154,9 +154,14 @@ export const CHANNELS = [
 ] as const;
 
 export const PRESET_BACKGROUNDS = [
-  { value: '/images/backgrounds/neon-circuit.jpg', label: 'Neon Circuit', labelZh: '霓虹电路' },
-  { value: '/images/backgrounds/neon-nebula.jpg', label: 'Neon Nebula', labelZh: '霓虹星云' },
-  { value: '/images/backgrounds/neon-orbs.jpg', label: 'Neon Orbs', labelZh: '霓虹光球' },
+  { value: '#0f172a', label: 'Night Ink', labelZh: '深夜墨蓝', preview: '#0f172a' },
+  { value: '#111827', label: 'Builder Black', labelZh: '极客曜黑', preview: '#111827' },
+  { value: '#f8fafc', label: 'Soft Paper', labelZh: '柔雾白', preview: '#f8fafc' },
+  { value: '#e0f2fe', label: 'Ice Blue', labelZh: '冰川浅蓝', preview: '#e0f2fe' },
+  { value: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)', label: 'Midnight Signal', labelZh: '午夜信号', preview: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)' },
+  { value: 'linear-gradient(135deg, #312e81 0%, #7c3aed 100%)', label: 'Violet Rush', labelZh: '电光紫雾', preview: 'linear-gradient(135deg, #312e81 0%, #7c3aed 100%)' },
+  { value: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)', label: 'Teal Flow', labelZh: '青潮渐变', preview: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)' },
+  { value: 'linear-gradient(135deg, #7c2d12 0%, #f97316 100%)', label: 'Amber Heat', labelZh: '暖焰橙金', preview: 'linear-gradient(135deg, #7c2d12 0%, #f97316 100%)' },
 ] as const;
 
 export const FEATURED_PROJECT_LIMIT = 3;
@@ -459,7 +464,7 @@ export function normalizeCompany(value?: string): string {
 export function normalizeFeaturedProjects(projects: FeaturedProject[]): FeaturedProject[] {
   return projects
     .slice(0, FEATURED_PROJECT_LIMIT)
-    .map((project, index) => ({
+    .map<FeaturedProject>((project, index) => ({
       id: project.id?.trim() || `project-${index + 1}`,
       name: project.name?.trim().slice(0, 28) || '',
       icon: project.icon?.trim() || '✨',
@@ -469,8 +474,8 @@ export function normalizeFeaturedProjects(projects: FeaturedProject[]): Featured
     .filter((project) => project.name && project.url);
 }
 
-export function getPrimaryProjectUrl(data: Pick<CardData, 'projects'>): string {
-  return normalizeFeaturedProjects(data.projects)[0]?.url ?? '';
+export function getPrimaryProjectUrl(data: Pick<CardData, 'projects' | 'primaryProjectUrl'>): string {
+  return validateUrl(data.primaryProjectUrl?.trim() ?? '') || normalizeFeaturedProjects(data.projects)[0]?.url || '';
 }
 
 export function createEmptyProject(index: number): FeaturedProject {
@@ -483,7 +488,7 @@ export function createEmptyProject(index: number): FeaturedProject {
   };
 }
 
-const VALID_PRESET_BACKGROUNDS = new Set(PRESET_BACKGROUNDS.map((b) => b.value));
+const VALID_PRESET_BACKGROUNDS = new Set<string>(PRESET_BACKGROUNDS.map((b) => b.value));
 const MAX_MODEL_BREAKDOWN_ENTRIES = 5;
 
 function normalizeModelBreakdown(mb: ModelBreakdown[] | undefined): ModelBreakdown[] {
@@ -631,7 +636,7 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         locale: payload.l ?? DEFAULT_CARD_DATA.locale,
         projects: normalizeFeaturedProjects(payload.pr ?? []),
         primaryProjectName: String(payload.ppn ?? DEFAULT_CARD_DATA.primaryProjectName).slice(0, 64),
-        primaryProjectUrl: String(payload.ppu ?? DEFAULT_CARD_DATA.primaryProjectUrl).slice(0, 512),
+        primaryProjectUrl: validateUrl(String(payload.ppu ?? DEFAULT_CARD_DATA.primaryProjectUrl).slice(0, 512)),
         primaryProjectPitch: String(payload.ppp ?? DEFAULT_CARD_DATA.primaryProjectPitch).slice(0, 200),
         referralCode,
         trustTier,

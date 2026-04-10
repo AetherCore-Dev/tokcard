@@ -157,11 +157,11 @@ export default function Leaderboard() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / (data.meta?.limit ?? PAGE_SIZE))) : 1;
   const rangeStart = data && data.total > 0 ? (data.meta?.offset ?? 0) + 1 : 0;
   const rangeEnd = data ? (data.meta?.offset ?? 0) + data.entries.length : 0;
-  const pageTitle = browserIsZh ? 'Token 排行榜' : 'Token Leaderboard';
+  const pageTitle = browserIsZh ? 'Token 与项目榜' : 'Token & Project Leaderboard';
   const pageSubtitle = data && data.total > 0
     ? (browserIsZh
-      ? `${data.total} 位开发者符合当前筛选 · 当前显示 ${rangeStart}-${rangeEnd}`
-      : `${data.total} builders match current filters · showing ${rangeStart}-${rangeEnd}`)
+      ? `${data.total} 位开发者符合当前筛选 · 当前显示 ${rangeStart}-${rangeEnd} · 顺手看看他们在做什么项目`
+      : `${data.total} builders match current filters · showing ${rangeStart}-${rangeEnd} · see what they are building`)
     : (browserIsZh ? '还没有符合条件的上榜者' : 'No builders match the current filters');
 
   const buildRankHref = useCallback((overrides: { region?: string; company?: string }) => {
@@ -427,18 +427,26 @@ function LeaderboardRow({
 }) {
   const tier = RANK_TIER_BADGES[entry.rankTierId] ?? RANK_TIER_BADGES.starter;
   const isTop3 = rank <= 3;
+  const projectName = entry.primaryProjectName || entry.topProject?.name || (isZh ? '未命名项目' : 'Untitled project');
+  const projectUrl = entry.primaryProjectUrl || entry.topProject?.url || '';
+  const projectPitch = entry.primaryProjectPitch || (isZh ? '这位开发者正在用 AI 推进一个项目。' : 'This builder is shipping with AI.');
 
   return (
     <div
       data-rank-id={entry.id}
       className={`rounded-[24px] border p-4 transition-all ${
         highlight
-          ? 'border-[#0071e3] bg-[#f8fbff] shadow-[0_12px_30px_rgba(0,113,227,0.12)]'
+          ? 'border-[#0071e3] bg-[#f8fbff] shadow-[0_16px_40px_rgba(0,113,227,0.16)]'
           : isTop3
             ? 'bg-white border-[#dbe4ff] shadow-[0_8px_24px_rgba(0,113,227,0.08)]'
             : 'bg-white/70 border-transparent hover:border-[#dbe4ff] hover:bg-white'
       }`}
     >
+      {highlight && (
+        <div className="mb-3 inline-flex items-center rounded-full border border-[#c7ddff] bg-[#eef5ff] px-3 py-1 text-xs font-semibold text-[#0071e3]">
+          {isZh ? '聚焦查看' : 'Focused entry'}
+        </div>
+      )}
       <div className="flex items-start gap-3">
         <div className={`w-11 text-center font-bold shrink-0 ${rank === 1 ? 'text-2xl' : rank <= 3 ? 'text-xl' : 'text-sm text-[#94a3b8]'}`}>
           {getRankMedal(rank)}
@@ -451,7 +459,15 @@ function LeaderboardRow({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-sm md:text-base truncate">{entry.username || 'Anonymous'}</span>
-            <span className="text-xs">{CHANNEL_ICONS[entry.channel] ?? '⚪'}</span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-2.5 py-1 text-[11px] font-medium text-[#475569]">
+              <span>{CHANNEL_ICONS[entry.channel] ?? '⚪'}</span>
+              <span>{entry.channel}</span>
+            </span>
+            {entry.topModel && (
+              <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-2.5 py-1 text-[11px] font-medium text-[#334155]">
+                {entry.topModel}
+              </span>
+            )}
             {entry.region && (
               <a
                 href={buildRankHref({ region: entry.region })}
@@ -472,22 +488,25 @@ function LeaderboardRow({
           </div>
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#94a3b8]">
-            {entry.topModel && <span>{entry.topModel}</span>}
-            {entry.projectCount > 0 && <span>· {entry.projectCount} {isZh ? '项目' : 'projects'}</span>}
+            {entry.projectCount > 0 && <span>{entry.projectCount} {isZh ? '个项目' : 'projects'}</span>}
             <span>· {new Date(entry.createdAt).toLocaleDateString(isZh ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}</span>
           </div>
 
-          {entry.topProject && (
-            <a
-              href={entry.topProject.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-flex max-w-full items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1.5 text-xs font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
-            >
-              <span>{entry.topProject.icon}</span>
-              <span className="truncate">{entry.topProject.name}</span>
-            </a>
-          )}
+          <div className="mt-3 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
+            <div className="text-lg font-semibold tracking-tight text-[#0f172a]">{projectName}</div>
+            <div className="mt-1 text-sm leading-6 text-[#64748b]">{projectPitch}</div>
+            {projectUrl && (
+              <a
+                href={projectUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-3 py-1.5 text-xs font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
+              >
+                <span>{entry.topProject?.icon || '🚀'}</span>
+                <span className="truncate">{isZh ? '打开项目' : 'Open project'}</span>
+              </a>
+            )}
+          </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
             <a
@@ -496,14 +515,14 @@ function LeaderboardRow({
             >
               {isZh ? '查看卡片' : 'View card'}
             </a>
-            {entry.topProject && (
+            {projectUrl && (
               <a
-                href={entry.topProject.url}
+                href={projectUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569]"
               >
-                {isZh ? '打开项目' : 'Open project'}
+                {isZh ? '项目主页' : 'Project page'}
               </a>
             )}
           </div>

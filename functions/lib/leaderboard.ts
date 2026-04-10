@@ -14,6 +14,9 @@ export interface LeaderboardEntry {
   avatarValue: string;
   theme: string;
   projectCount: number;
+  primaryProjectName: string;
+  primaryProjectUrl: string;
+  primaryProjectPitch: string;
   topProject?: {
     name: string;
     url: string;
@@ -76,6 +79,18 @@ function normalizeCompany(value?: string): string | undefined {
   return normalized || undefined;
 }
 
+function normalizeUrl(value?: unknown): string {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) return '';
+
+  try {
+    const { protocol } = new URL(normalized);
+    return protocol === 'https:' || protocol === 'http:' ? normalized : '';
+  } catch {
+    return '';
+  }
+}
+
 function normalizeTime(value?: string): 'week' | 'month' | 'all' {
   return value === 'week' || value === 'month' ? value : 'all';
 }
@@ -130,7 +145,10 @@ function sanitizeLeaderboardEntry(raw: Partial<LeaderboardEntry> | null | undefi
     ? raw.topProject as { name?: unknown; url?: unknown; icon?: unknown }
     : null;
   const topProjectName = String(maybeTopProject?.name ?? '').trim().slice(0, 28);
-  const topProjectUrl = String(maybeTopProject?.url ?? '').trim();
+  const topProjectUrl = normalizeUrl(maybeTopProject?.url);
+  const primaryProjectName = String(raw.primaryProjectName ?? topProjectName).trim().slice(0, 64);
+  const primaryProjectUrl = normalizeUrl(raw.primaryProjectUrl) || topProjectUrl;
+  const primaryProjectPitch = String(raw.primaryProjectPitch ?? '').trim().slice(0, 140);
 
   return {
     id,
@@ -141,10 +159,13 @@ function sanitizeLeaderboardEntry(raw: Partial<LeaderboardEntry> | null | undefi
     avatarValue: String(raw.avatarValue ?? '🤖').slice(0, 256),
     theme: String(raw.theme ?? 'brand-light').slice(0, 32),
     projectCount: Math.max(0, Math.min(999, Number(raw.projectCount ?? 0) || 0)),
-    topProject: topProjectName && topProjectUrl
+    primaryProjectName,
+    primaryProjectUrl,
+    primaryProjectPitch,
+    topProject: (primaryProjectName && primaryProjectUrl) || (topProjectName && topProjectUrl)
       ? {
-          name: topProjectName,
-          url: topProjectUrl,
+          name: (primaryProjectName || topProjectName).slice(0, 28),
+          url: primaryProjectUrl || topProjectUrl,
           icon: String(maybeTopProject?.icon ?? '✨').trim().slice(0, 4) || '✨',
         }
       : undefined,
@@ -296,8 +317,11 @@ export function buildLeaderboardEntry(
   const topModel = models.length > 0 ? String((models[0] as Record<string, unknown>).name ?? '') : '';
   const topProject = projects.find((project) => {
     const value = project as Record<string, unknown>;
-    return String(value.name ?? '').trim() && String(value.url ?? '').trim();
+    return String(value.name ?? '').trim() && normalizeUrl(value.url);
   }) as Record<string, unknown> | undefined;
+  const primaryProjectName = String(card.ppn ?? topProject?.name ?? '').trim().slice(0, 64);
+  const primaryProjectUrl = normalizeUrl(card.ppu) || normalizeUrl(topProject?.url);
+  const primaryProjectPitch = String(card.ppp ?? '').trim().slice(0, 140);
 
   return {
     id,
@@ -308,11 +332,14 @@ export function buildLeaderboardEntry(
     avatarValue: String(card.av ?? '🤖'),
     theme: String(card.th ?? 'brand-light'),
     projectCount: projects.length,
-    topProject: topProject
+    primaryProjectName,
+    primaryProjectUrl,
+    primaryProjectPitch,
+    topProject: (primaryProjectName && primaryProjectUrl) || topProject
       ? {
-          name: String(topProject.name ?? '').trim().slice(0, 28),
-          url: String(topProject.url ?? '').trim(),
-          icon: String(topProject.icon ?? '✨').trim().slice(0, 4) || '✨',
+          name: (primaryProjectName || String(topProject?.name ?? '')).trim().slice(0, 28),
+          url: primaryProjectUrl || normalizeUrl(topProject?.url),
+          icon: String(topProject?.icon ?? '✨').trim().slice(0, 4) || '✨',
         }
       : undefined,
     topModel,

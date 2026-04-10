@@ -81,12 +81,28 @@ const SLOGAN_MODE_LABELS = {
   social: { zh: '社交标题', en: 'Social' },
 } as const;
 
+const CURATED_THEME_OPTIONS = [
+  { value: 'brand-dark', labelZh: '午夜墨蓝', labelEn: 'Midnight Ink', preview: 'bg-[#0f172a] border-[#1d4ed8]' },
+  { value: 'gradient-dream', labelZh: '梦境紫蓝', labelEn: 'Dream Gradient', preview: 'bg-gradient-to-r from-[#312e81] to-[#7c3aed] border-white/30' },
+  { value: 'ocean-blue', labelZh: '深海信号', labelEn: 'Ocean Signal', preview: 'bg-[#081421] border-[#38bdf8]' },
+  { value: 'minimal-gray', labelZh: '柔雾极简', labelEn: 'Soft Minimal', preview: 'bg-[#f3f4f6] border-[#d1d5db]' },
+  { value: 'brand-light', labelZh: '清晨白', labelEn: 'Morning White', preview: 'bg-[#fbfbfd] border-[#d2d2d7]' },
+] as const;
+
 interface AICaptionOption {
   title: string;
   body: string;
   hashtags: string[];
   emoji: string;
   vibe: 'flex' | 'hype' | 'technical';
+}
+
+interface RankSummary {
+  globalRank: number;
+  totalCards: number;
+  channelRank: number | null;
+  regionRank: number | null;
+  percentile: number;
 }
 
 function detectProofSourceFromText(raw: string): ProofSource | undefined {
@@ -102,7 +118,7 @@ function detectProofSourceFromText(raw: string): ProofSource | undefined {
 }
 
 function extractImportedTokenValues(raw: string): number[] {
-  const matches = raw.match(/\d[\d,.]*(?:\.\d+)?\s*(?:billion|million|thousand|[kmb]|万|亿|tokens?)?/gi) ?? [];
+  const matches = raw.match(/\d[\d,.]*(?:\.\d+)?\s*(?:billion|million|thousand|[kmb]|\u4e07|\u4ebf|tokens?)?/gi) ?? [];
 
   return matches
     .map((chunk) => chunk
@@ -262,12 +278,13 @@ function parseCaptionOptions(raw: string): AICaptionOption[] {
       const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
       const title = lines.find((line) => line.startsWith('TITLE:'))?.replace('TITLE:', '').trim() ?? '';
       const body = lines.find((line) => line.startsWith('BODY:'))?.replace('BODY:', '').trim() ?? '';
-      const hashtags = lines.find((line) => line.startsWith('HASHTAGS:'))?.replace('HASHTAGS:', '').trim().split(/\s+/).filter(Boolean) ?? [];
+      const hashtags = (lines.find((line) => line.startsWith('HASHTAGS:'))?.replace('HASHTAGS:', '').trim().split(/\s+/).filter(Boolean) ?? []).slice(0, 2);
       const emoji = lines.find((line) => line.startsWith('EMOJI:'))?.replace('EMOJI:', '').trim() ?? '🔥';
       const vibe = (lines.find((line) => line.startsWith('VIBE:'))?.replace('VIBE:', '').trim() ?? 'hype') as AICaptionOption['vibe'];
       return { title, body, hashtags, emoji, vibe };
     })
-    .filter((item) => item.title || item.body);
+    .filter((item) => item.title || item.body)
+    .slice(0, 3);
 }
 
 export default function CardEditor() {
@@ -297,8 +314,9 @@ export default function CardEditor() {
   const [exportProgress, setExportProgress] = useState(0);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [shareCardId, setShareCardId] = useState('');
+  const [shareRankSummary, setShareRankSummary] = useState<RankSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const backgroundFileInputRef = useRef<HTMLInputElement>(null);
   const proofFileInputRef = useRef<HTMLInputElement>(null);
   const [proofCaptureMode, setProofCaptureMode] = useState<'screenshot' | 'import'>('screenshot');
   const [proofFiles, setProofFiles] = useState<{ name: string; size: number }[]>([]);
@@ -313,7 +331,6 @@ export default function CardEditor() {
 
   // Container ref for responsive scaling
   const previewContainerRef = useRef<HTMLDivElement>(null);
-  const mobilePreviewInitializedRef = useRef(false);
   const [previewScale, setPreviewScale] = useState(0.72);
   const [isPreviewReady, setIsPreviewReady] = useState(true);
   const previewRenderId = 'tokcard-preview';
@@ -400,41 +417,41 @@ export default function CardEditor() {
   const achievements = useMemo(() => getAchievements(data), [data]);
   const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
   const normalizedProjects = useMemo(() => normalizeFeaturedProjects(data.projects), [data.projects]);
-  const primaryProjectUrl = useMemo(() => getPrimaryProjectUrl({ projects: data.projects }), [data.projects]);
+  const primaryProjectUrl = useMemo(() => getPrimaryProjectUrl(data), [data]);
   const previewCardData = useMemo(() => ({ ...data, qrcodeUrl: siteOrigin }), [data, siteOrigin]);
   const exportCardData = exportCardSnapshot ?? previewCardData;
   const readinessItems = useMemo(() => ([
     {
-      id: 'identity',
-      label: isZh ? '身份信息' : 'Identity',
-      done: Boolean(data.username.trim() && data.slogan.trim()),
-      hint: isZh ? '昵称 + 一句话签名' : 'Username + slogan',
+      id: 'tokens',
+      label: isZh ? 'Token 体量' : 'Token volume',
+      done: data.totalTokens > 0,
+      hint: isZh ? '这是卡片最重要的信息' : 'The most important signal on the card',
     },
     {
-      id: 'proof',
-      label: isZh ? '战绩数据' : 'Proof',
-      done: data.totalTokens > 0,
-      hint: isZh ? '填写 token 体量' : 'Add token volume',
+      id: 'project-name',
+      label: isZh ? '项目名称' : 'Project name',
+      done: Boolean(data.primaryProjectName.trim()),
+      hint: isZh ? '让别人知道你在做什么' : 'Tell people what you are building',
+    },
+    {
+      id: 'project-pitch',
+      label: isZh ? '项目一句话' : 'Project pitch',
+      done: Boolean(data.primaryProjectPitch.trim()),
+      hint: isZh ? '一句话说清项目价值' : 'A single line that sells the project',
+    },
+    {
+      id: 'project-link',
+      label: isZh ? '项目链接' : 'Project link',
+      done: Boolean(primaryProjectUrl),
+      hint: isZh ? '导出后二维码会直达项目' : 'QR opens the project destination',
     },
     {
       id: 'credibility',
-      label: isZh ? '可信度' : 'Trust',
+      label: isZh ? '排名可信度' : 'Ranking trust',
       done: data.trustTier !== 'self-reported',
-      hint: isZh ? '可选：截图或导入' : 'Optional: screenshot or import',
+      hint: isZh ? '可选：截图或导入记录' : 'Optional: screenshot or usage import',
     },
-    {
-      id: 'projects',
-      label: isZh ? '项目名片' : 'Projects',
-      done: normalizedProjects.length > 0,
-      hint: isZh ? '至少 1 个项目入口' : 'At least 1 project link',
-    },
-    {
-      id: 'share',
-      label: isZh ? '分享承接' : 'Share flow',
-      done: Boolean(primaryProjectUrl),
-      hint: isZh ? '导出后自动生成 TokCard 二维码' : 'TokCard QR is added on export',
-    },
-  ]), [data.slogan, data.totalTokens, data.trustTier, data.username, isZh, normalizedProjects.length, primaryProjectUrl]);
+  ]), [data.primaryProjectName, data.primaryProjectPitch, data.totalTokens, data.trustTier, isZh, primaryProjectUrl]);
   const readinessScore = useMemo(() => readinessItems.filter((item) => item.done).length, [readinessItems]);
   const trustTierLabel = useMemo(() => getTrustTierLabel(data.trustTier, data.locale), [data.locale, data.trustTier]);
   const trustTierDescription = useMemo(() => getTrustTierDescription(data.trustTier, data.locale), [data.locale, data.trustTier]);
@@ -445,17 +462,17 @@ export default function CardEditor() {
   const proofRangeLabel = useMemo(() => formatProofDateRange(data.proofDateRange, data.locale), [data.locale, data.proofDateRange]);
   const rankingDisplay = useMemo(() => getMaxRankingDisplay(data.trustTier), [data.trustTier]);
   const fieldErrors = useMemo(() => ({
-    username: !data.username.trim(),
-    slogan: !data.slogan.trim(),
     tokens: data.totalTokens <= 0,
+    primaryProjectName: !data.primaryProjectName.trim(),
+    primaryProjectPitch: !data.primaryProjectPitch.trim(),
     project: !primaryProjectUrl,
-  }), [data.slogan, data.totalTokens, data.username, primaryProjectUrl]);
+  }), [data.primaryProjectName, data.primaryProjectPitch, data.totalTokens, primaryProjectUrl]);
   const exportIssues = useMemo(() => {
     const issues: string[] = [];
-    if (fieldErrors.username) issues.push(isZh ? '请先填写用户名。' : 'Add a username first.');
-    if (fieldErrors.slogan) issues.push(isZh ? '请先写一句话签名。' : 'Add a slogan first.');
     if (fieldErrors.tokens) issues.push(isZh ? '请先填写有效的 Token 消耗量。' : 'Add a valid token amount first.');
-    if (fieldErrors.project) issues.push(isZh ? '请至少添加一个有效项目链接，用于展示作品和生成分享页。' : 'Add at least one valid project link for project discovery and sharing.');
+    if (fieldErrors.primaryProjectName) issues.push(isZh ? '请填写主项目名称。' : 'Add a primary project name.');
+    if (fieldErrors.primaryProjectPitch) issues.push(isZh ? '请填写一句能打的项目介绍。' : 'Add a strong one-line project pitch.');
+    if (fieldErrors.project) issues.push(isZh ? '请填写有效的主项目链接。' : 'Add a valid primary project link.');
     return issues;
   }, [fieldErrors, isZh]);
   const canExport = exportIssues.length === 0;
@@ -487,6 +504,35 @@ export default function CardEditor() {
     window.addEventListener('resize', calculateScale);
     return () => window.removeEventListener('resize', calculateScale);
   }, [isMobile, previewStageWidth]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!shareCardId) {
+      setShareRankSummary(null);
+      return;
+    }
+
+    void fetch(`/api/rank?id=${shareCardId}`)
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json() as Promise<RankSummary>;
+      })
+      .then((payload) => {
+        if (!cancelled) {
+          setShareRankSummary(payload);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setShareRankSummary(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shareCardId]);
 
   const updateField = useCallback(<K extends keyof CardData>(key: K, value: CardData[K]) => {
     setData(prev => ({ ...prev, [key]: value }));
@@ -604,11 +650,13 @@ export default function CardEditor() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: data.username || 'developer',
+          username: data.username || data.primaryProjectName || 'builder',
           tokens: data.totalTokens,
           locale: data.locale,
           style: sloganCategory,
           titleMode: sloganMode,
+          primaryProjectName: data.primaryProjectName,
+          primaryProjectPitch: data.primaryProjectPitch,
         }),
       });
 
@@ -619,15 +667,15 @@ export default function CardEditor() {
         return;
       }
 
-      const result = await response.json();
-      setAiSlogans(parseAIOptions(result.content));
+      const result = await response.json() as { content?: string };
+      setAiSlogans(parseAIOptions(result.content ?? '').slice(0, 3));
     } catch (err) {
       console.error('AI slogan generation failed:', err);
       alert(isZh ? '生成失败，请检查网络' : 'Generation failed, check network');
     } finally {
       setIsGeneratingSlogan(false);
     }
-  }, [data.username, data.totalTokens, data.locale, isZh, sloganCategory, sloganMode]);
+  }, [data.username, data.primaryProjectName, data.primaryProjectPitch, data.totalTokens, data.locale, isZh, sloganCategory, sloganMode]);
 
   const handleGenerateCaptions = useCallback(async () => {
     setIsGeneratingCaptions(true);
@@ -641,10 +689,12 @@ export default function CardEditor() {
           platform: data.platform,
           tokens: data.totalTokens,
           metaphor: activeMetaphor,
-          username: data.username || 'developer',
+          username: data.username || data.primaryProjectName || 'builder',
           locale: data.locale,
           slogan: data.slogan,
           projects: normalizeFeaturedProjects(data.projects).map((project) => project.name),
+          primaryProjectName: data.primaryProjectName,
+          primaryProjectPitch: data.primaryProjectPitch,
           trustTier: data.trustTier,
           trustTierLabel,
           proofSource: data.proofSource,
@@ -661,8 +711,8 @@ export default function CardEditor() {
         return;
       }
 
-      const result = await response.json();
-      setAiCaptions(parseCaptionOptions(result.content));
+      const result = await response.json() as { content?: string };
+      setAiCaptions(parseCaptionOptions(result.content ?? '').slice(0, 3));
     } catch (err) {
       console.error('AI caption generation failed:', err);
       alert(isZh ? '生成失败，请检查网络' : 'Generation failed, check network');
@@ -673,6 +723,8 @@ export default function CardEditor() {
     activeMetaphor,
     data.locale,
     data.platform,
+    data.primaryProjectName,
+    data.primaryProjectPitch,
     data.projects,
     data.proofSource,
     data.slogan,
@@ -699,6 +751,7 @@ export default function CardEditor() {
           tokens: tokensToUse,
           locale: data.locale,
           category: data.metaphorCategory,
+          primaryProjectName: data.primaryProjectName,
         }),
       });
 
@@ -709,8 +762,8 @@ export default function CardEditor() {
         return;
       }
 
-      const result = await response.json();
-      const options = parseAIOptions(result.content);
+      const result = await response.json() as { content?: string };
+      const options = parseAIOptions(result.content ?? '').slice(0, 3);
       setAiMetaphors(options);
       updateField('customMetaphor', options[0] ?? '');
     } catch (err) {
@@ -719,7 +772,7 @@ export default function CardEditor() {
     } finally {
       setIsGeneratingMetaphor(false);
     }
-  }, [data.totalTokens, data.locale, isZh, updateField]);
+  }, [data.totalTokens, data.primaryProjectName, data.locale, isZh, updateField]);
 
   const handleGeneratePitch = useCallback(async () => {
     setIsGeneratingPitch(true);
@@ -740,8 +793,8 @@ export default function CardEditor() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      setAiPitches(parseAIOptions(result.content));
+      const result = await response.json() as { content?: string };
+      setAiPitches(parseAIOptions(result.content ?? '').slice(0, 3));
     } catch (err) {
       console.error('AI pitch generation failed:', err);
       alert(isZh ? '生成失败，请检查网络' : 'Generation failed, check network');
@@ -873,32 +926,6 @@ export default function CardEditor() {
       };
     });
   }, []);
-
-  const handleBackgroundUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const error = validateImageFile(file);
-    if (error) {
-      alert(error);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setData(prev => ({
-          ...prev,
-          backgroundType: 'custom',
-          backgroundValue: event.target?.result as string,
-        }));
-      }
-    };
-    reader.onerror = () => {
-      alert(isZh ? '文件读取失败，请重试' : 'Failed to read file. Please try again.');
-    };
-    reader.readAsDataURL(file);
-  }, [validateImageFile, isZh]);
 
   const handleProofFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files ?? []);
@@ -1033,11 +1060,24 @@ export default function CardEditor() {
     }
 
     const tokenText = data.totalTokens > 0 ? data.totalTokens.toLocaleString() : '0';
-    const projectNames = normalizeFeaturedProjects(data.projects).map((project) => project.name).join(' · ');
+    const projectLabel = data.primaryProjectName.trim();
+    const projectPitch = data.primaryProjectPitch.trim();
     return isZh
-      ? `${data.username || '我'}本月用 AI 烧了 ${tokenText} token。\n${trustCopyParts.trustLead}\n${activeMetaphor}。${projectNames ? `\n最近在做：${projectNames}。` : ''}\n${trustCopyParts.trustTail}\n这张卡是我准备发${platformInfo.labelZh}的，你也来生成一张：tokcard.dev\n#TokCard #AI战绩 #可信表达`
-      : `${data.username || 'I'} burned ${tokenText} AI tokens this month.\n${trustCopyParts.trustLead}\n${activeMetaphor}.${projectNames ? `\nCurrently shipping: ${projectNames}.` : ''}\n${trustCopyParts.trustTail}\nBuilt this one for ${platformInfo.label}. Make yours at tokcard.dev\n#TokCard #AIFlex #BuilderProof`;
-  }, [activeMetaphor, data.projects, data.totalTokens, data.username, isZh, platformInfo.label, platformInfo.labelZh, sortedAiCaptions, trustCopyParts]);
+      ? [
+          `${data.username || '我'}本月烧了 ${tokenText} token`,
+          projectLabel ? `项目：${projectLabel}` : '',
+          projectPitch || activeMetaphor,
+          rankingSignalLabel,
+          '#TokCard #AI战绩',
+        ].filter(Boolean).join('\n')
+      : [
+          `${data.username || 'I'} burned ${tokenText} AI tokens this month`,
+          projectLabel ? `Project: ${projectLabel}` : '',
+          projectPitch || activeMetaphor,
+          rankingSignalLabel,
+          '#TokCard #AIBuilders',
+        ].filter(Boolean).join('\n');
+  }, [activeMetaphor, data.primaryProjectName, data.primaryProjectPitch, data.totalTokens, data.username, isZh, rankingSignalLabel, sortedAiCaptions]);
   const recommendedAiCaption = useMemo(() => sortedAiCaptions[0] ?? null, [sortedAiCaptions]);
   const recommendedCaptionText = useMemo(() => (
     recommendedAiCaption
@@ -1101,14 +1141,16 @@ export default function CardEditor() {
       }
       setExportProgress(20);
 
-      const cardWithRef = { ...data, referralCode: sanitizeReferralCode(data.referralCode || data.username) };
+      const cardWithRef = { ...data, referralCode: sanitizeReferralCode(data.referralCode || data.username || data.primaryProjectName) };
       const nextShareCaption = shareCaption || buildShareCaption();
       const shortResult = await saveCardAndGetShortUrl(cardWithRef, window.location.origin);
       const nextShareLink = shortResult?.shortUrl
         ?? buildSharedCardUrl(cardWithRef, window.location.origin)
         ?? window.location.origin;
+      const nextCardId = shortResult?.cardId ?? '';
       const nextExportCard = { ...cardWithRef, qrcodeUrl: nextShareLink };
 
+      setShareCardId(nextCardId);
       setExportCardSnapshot(nextExportCard);
       setExportProgress(36);
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -1137,7 +1179,7 @@ export default function CardEditor() {
 
       if (!blob) throw new Error('Generation failed: null blob');
 
-      const filename = `tokcard-${data.username || 'card'}-${data.platform}.png`;
+      const filename = `tokcard-${data.username || data.primaryProjectName || 'card'}-${data.platform}.png`;
       let shared = false;
 
       const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1403,10 +1445,10 @@ export default function CardEditor() {
                 <button
                   type="button"
                   onClick={handleGeneratePitch}
-                  disabled={isGeneratingPitch || !data.primaryProjectName}
+                  disabled={isGeneratingPitch || (!data.primaryProjectName.trim() && !data.primaryProjectUrl.trim())}
                   className="text-xs px-3 py-1.5 rounded-full font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 bg-[#0071e3]/10 text-[#0071e3] hover:bg-[#0071e3]/20"
                 >
-                  {isGeneratingPitch ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '✨ AI 生成介绍' : '✨ AI Pitch')}
+                  {isGeneratingPitch ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '✨ 生成 3 条项目介绍' : '✨ Generate 3 pitches')}
                 </button>
               </div>
 
@@ -1423,7 +1465,7 @@ export default function CardEditor() {
                       >
                         {pitch}
                       </button>
-                    ))
+                    ))}
                   </div>
                 </div>
               )}
@@ -1436,7 +1478,6 @@ export default function CardEditor() {
                 {isZh ? '预览并导出' : 'Preview & Export'}
               </button>
             </div>
-            </>)}
 
             {/* ===== Advanced Personalization Accordion ===== */}
             <div className="rounded-[24px] border border-[#dbe4ff] bg-white shadow-sm overflow-hidden">
@@ -1455,8 +1496,112 @@ export default function CardEditor() {
                 </div>
                 <span className={`text-[#86868b] transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▼</span>
               </button>
-              {showAdvanced && (
-              <div className="px-5 pb-5 space-y-8">
+              <div className={showAdvanced ? 'px-5 pb-5 space-y-8' : 'hidden'}>
+
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <div className="text-[13px] font-semibold text-[#86868b] uppercase tracking-wide">{isZh ? '精选模板' : 'Curated templates'}</div>
+                  <div className="mt-1 text-xs text-[#94a3b8]">{isZh ? '只保留 4 个最常用的场景模板。' : 'Only 4 clear starting points remain.'}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {CARD_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset.id)}
+                    className="rounded-2xl border border-[#dbe4ff] bg-white p-3 text-left transition hover:border-[#0071e3] hover:shadow-sm"
+                    style={{ borderLeftWidth: 3, borderLeftColor: preset.accent }}
+                  >
+                    <div className="text-lg leading-none">{preset.emoji}</div>
+                    <div className="mt-2 text-xs font-semibold text-[#1d1d1f] leading-tight">{isZh ? preset.name : preset.nameEn}</div>
+                    <div className="mt-1 text-[10px] leading-4 text-[#94a3b8]">{isZh ? preset.description : preset.descriptionEn}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                  {isZh ? '你的名字 / 昵称' : 'Your name / handle'}
+                </label>
+                <input
+                  type="text"
+                  value={data.username}
+                  onChange={e => updateField('username', e.target.value)}
+                  placeholder={isZh ? '选填：用于卡片展示身份' : 'Optional: shown on the card'}
+                  maxLength={64}
+                  className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
+                  {isZh ? '一句话签名' : 'Slogan'}
+                </label>
+                <input
+                  type="text"
+                  value={data.slogan}
+                  onChange={e => updateField('slogan', e.target.value)}
+                  placeholder={isZh ? '选填：越短越有记忆点' : 'Optional: short works best'}
+                  maxLength={60}
+                  className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[13px] font-semibold text-[#86868b] uppercase tracking-wide">
+                  {isZh ? 'AI 签名建议' : 'AI slogan ideas'}
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateSlogan}
+                  disabled={isGeneratingSlogan || data.totalTokens <= 0}
+                  className="text-xs px-3 py-1.5 rounded-full font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 bg-[#111827]/10 text-[#111827] hover:bg-[#111827]/15"
+                >
+                  {isGeneratingSlogan ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '✨ 生成 3 条签名' : '✨ Generate 3 slogans')}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {Object.entries(SLOGAN_MODE_LABELS).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSloganMode(key as keyof typeof SLOGAN_MODE_LABELS)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${sloganMode === key ? 'bg-[#0071e3] text-white' : 'bg-[#eef4ff] text-[#1d1d1f] hover:bg-[#dce9ff]'}`}
+                  >
+                    {isZh ? label.zh : label.en}
+                  </button>
+                ))}
+                {Object.entries(SLOGAN_CATEGORY_LABELS).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSloganCategory(key as keyof typeof SLOGAN_CATEGORY_LABELS)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${sloganCategory === key ? 'bg-[#111827] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
+                  >
+                    {isZh ? label.zh : label.en}
+                  </button>
+                ))}
+              </div>
+              {aiSlogans.length > 0 && (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {aiSlogans.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => updateField('slogan', s)}
+                      className={`rounded-xl border px-3 py-2 text-left text-sm transition-all ${data.slogan === s ? 'border-[#0071e3] bg-[#eef5ff] text-[#0071e3]' : 'border-[#dbe4ff] bg-white text-[#334155] hover:border-[#0071e3]'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Last month tokens */}
             <div className="grid gap-4 md:grid-cols-2">
@@ -1494,13 +1639,12 @@ export default function CardEditor() {
             {/* Background */}
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '背景图' : 'Background'}
+                {isZh ? '卡片底色' : 'Card background'}
               </label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {([
-                  { value: 'none', label: isZh ? '纯色' : 'Solid' },
-                  { value: 'preset', label: isZh ? '预设' : 'Preset' },
-                  { value: 'custom', label: isZh ? '上传图片' : 'Upload' },
+                  { value: 'none', label: isZh ? '跟随主题' : 'Theme default' },
+                  { value: 'preset', label: isZh ? '精选配色' : 'Curated swatches' },
                 ] as const).map(option => (
                   <button
                     type="button"
@@ -1514,7 +1658,7 @@ export default function CardEditor() {
               </div>
 
               {data.backgroundType === 'preset' && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {PRESET_BACKGROUNDS.map(background => (
                     <button
                       type="button"
@@ -1524,7 +1668,7 @@ export default function CardEditor() {
                       }}
                       className={`overflow-hidden rounded-xl border-2 transition-all text-left ${data.backgroundValue === background.value ? 'border-[#0071e3] ring-4 ring-[#0071e3]/10' : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'}`}
                     >
-                      <img src={background.value} alt={isZh ? background.labelZh : background.label} className="h-24 w-full object-cover" />
+                      <div style={{ background: background.preview, height: 72 }} className="w-full" />
                       <div className="px-3 py-2 text-xs font-medium text-[#1d1d1f] bg-white">
                         {isZh ? background.labelZh : background.label}
                       </div>
@@ -1533,30 +1677,8 @@ export default function CardEditor() {
                 </div>
               )}
 
-              {data.backgroundType === 'custom' && (
-                <div className="flex items-center gap-4">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBackgroundUpload}
-                    ref={backgroundFileInputRef}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => backgroundFileInputRef.current?.click()}
-                    className="px-6 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] font-medium hover:bg-[#f5f5f7] transition-colors"
-                  >
-                    {isZh ? '选择背景图...' : 'Choose Background...'}
-                  </button>
-                  {data.backgroundValue && (
-                    <img src={data.backgroundValue} alt="Background preview" className="w-20 h-12 rounded-lg object-cover border border-[#d2d2d7]" />
-                  )}
-                </div>
-              )}
-
               <p className="mt-2 text-xs text-[#86868b]">
-                {isZh ? '建议使用对比强、层次明显的图片，导出更出片。' : 'High-contrast backgrounds usually export best.'}
+                {isZh ? '只保留精选纯色与渐变，避免花哨背景抢掉内容重点。' : 'Only curated solids and gradients remain so the content stays in focus.'}
               </p>
             </div>
 
@@ -1645,29 +1767,21 @@ export default function CardEditor() {
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
                 {isZh ? '卡片主题' : 'Card Theme'}
               </label>
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-                {([
-                  { value: 'brand-light', label: isZh ? '晨曦白' : 'Dawn White', preview: 'bg-[#fbfbfd] border-[#d2d2d7]' },
-                  { value: 'brand-dark', label: isZh ? '午夜紫' : 'Midnight Violet', preview: 'bg-[#0f0f12] border-purple-500' },
-                  { value: 'bold-violet', label: isZh ? '高亮紫' : 'Bold Violet', preview: 'bg-purple-700 border-amber-500' },
-                  { value: 'mono-brutal', label: isZh ? '粗野黑白' : 'Mono Brutal', preview: 'bg-white border-black border-2' },
-                  { value: 'terminal-green', label: isZh ? '黑客帝国' : 'Terminal Green', preview: 'bg-[#07130c] border-green-500' },
-                  { value: 'cyberpunk-neon', label: isZh ? '赛博霓虹' : 'Cyberpunk Neon', preview: 'bg-fuchsia-700 border-cyan-300' },
-                  { value: 'gradient-dream', label: isZh ? '梦幻渐变' : 'Gradient Dream', preview: 'bg-gradient-to-r from-blue-500 via-violet-500 to-pink-500 border-white/30' },
-                  { value: 'sunset-warm', label: isZh ? '暖阳橙' : 'Sunset Warm', preview: 'bg-orange-700 border-amber-300' },
-                  { value: 'ocean-blue', label: isZh ? '深海蓝' : 'Ocean Blue', preview: 'bg-sky-950 border-sky-400' },
-                  { value: 'minimal-gray', label: isZh ? '极简灰' : 'Minimal Gray', preview: 'bg-gray-100 border-gray-300' },
-                ] as const).map(theme => (
+                <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                {CURATED_THEME_OPTIONS.map((theme) => (
                   <button type="button"
                     key={theme.value}
                     onClick={() => updateField('theme', theme.value)}
                     className={`p-3 rounded-xl border-2 transition-all text-left ${data.theme === theme.value ? 'border-[#0071e3] bg-[#0071e3]/5 ring-4 ring-[#0071e3]/10' : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'}`}
                   >
                     <div className={`w-full h-8 rounded-lg mb-2 ${theme.preview} border`} />
-                    <span className="text-sm font-medium text-[#1d1d1f]">{theme.label}</span>
+                    <span className="text-sm font-medium text-[#1d1d1f]">{isZh ? theme.labelZh : theme.labelEn}</span>
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-[#86868b]">
+                {isZh ? '主题只保留 5 个精选方案，减少纠结，让 token、项目和档位更突出。' : 'Only 5 curated themes remain so token volume, project identity, and rank stay in focus.'}
+              </p>
             </div>
 
             <div>
@@ -1802,7 +1916,7 @@ export default function CardEditor() {
                   return (
                   <button type="button"
                     key={key}
-                    onClick={() => handleMetaphorCategoryChange(key)}
+                    onClick={() => handleMetaphorCategoryChange(key as CardData['metaphorCategory'])}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${data.metaphorCategory === key ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
                   >
                     {isZh ? l.zh : l.en}
@@ -2079,7 +2193,10 @@ export default function CardEditor() {
                   {proofFeedback}
                 </div>
               )}
+              </div>
             </div>
+            </div>
+            </>)}
 
             {/* ===== STEP 3: 导出分享 ===== */}
             {step === 3 && (<>
@@ -2151,7 +2268,7 @@ export default function CardEditor() {
 
             {/* Step 3 back navigation — desktop only, mobile uses sticky bar */}
             <div className="hidden lg:flex gap-3 mt-6">
-              <button type="button" onClick={() => setStep(step - 1)}
+              <button type="button" onClick={() => setStep(1)}
                 className="px-6 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold hover:bg-[#f5f5f7]">
                 {isZh ? '上一步' : 'Back'}
               </button>
@@ -2267,6 +2384,52 @@ export default function CardEditor() {
                   {isUsingRecommendedCaption
                     ? (isZh ? '当前文本框里已经是推荐版本。' : 'The textarea below is already using the recommended version.')
                     : (isZh ? '你也可以保留自己手动挑选的版本。' : 'You can still keep your manually chosen version if you prefer.')}
+                </div>
+              </div>
+            )}
+
+            {shareCardId && (
+              <div className="mt-5 rounded-2xl border border-[#dbe4ff] bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_100%)] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-[#1d1d1f]">
+                      {isZh ? '这张卡的排行反馈' : 'How this card ranks'}
+                    </div>
+                    {shareRankSummary ? (
+                      <>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="inline-flex items-center rounded-full border border-[#c7ddff] bg-[#eef5ff] px-3 py-1 text-xs font-semibold text-[#0071e3]">
+                            {isZh ? `全球第 #${shareRankSummary.globalRank} 名` : `Global #${shareRankSummary.globalRank}`}
+                          </span>
+                          <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-3 py-1 text-xs font-medium text-[#334155]">
+                            {isZh ? `超过 ${Math.max(0, 100 - shareRankSummary.percentile)}% 用户` : `Ahead of ${Math.max(0, 100 - shareRankSummary.percentile)}% of builders`}
+                          </span>
+                          <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-3 py-1 text-xs font-medium text-[#334155]">
+                            {rankTier ? `${rankTier.badge} ${isZh ? rankTier.clubLabel : rankTier.clubLabelEn}` : rankingSignalLabel}
+                          </span>
+                        </div>
+                        <div className="mt-3 text-xs leading-5 text-[#64748b]">
+                          {isZh
+                            ? `这张卡已经可以被排行榜聚焦查看。你现在也能顺手看看前面的人都在做什么项目。`
+                            : `This card can now be opened with a focused leaderboard view, so you can compare your rank with what other builders are shipping.`}
+                        </div>
+                      </>
+                    ) : canParticipateInRanking(data.trustTier) ? (
+                      <div className="mt-3 text-xs leading-5 text-[#64748b]">
+                        {isZh ? '排行榜数据正在同步，稍后用下面的链接进入聚焦视图即可。' : 'Leaderboard data is still syncing. Use the focused leaderboard link below in a moment.'}
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-xs leading-5 text-[#64748b]">
+                        {isZh ? '当前还是「用户填写」状态，所以会展示档位信号，但不会进入正式排名。补一张截图或导入 usage 记录后会更强。' : 'This card is still self-reported, so it shows a tier signal but does not enter the official ranking yet. Add proof or import usage to unlock stronger ranking views.'}
+                      </div>
+                    )}
+                  </div>
+                  <a
+                    href={`/rank?focus=${shareCardId}`}
+                    className="inline-flex items-center justify-center rounded-xl border border-[#dbe4ff] bg-white px-4 py-2.5 text-sm font-medium text-[#1d1d1f] hover:bg-[#f8fbff]"
+                  >
+                    {isZh ? '查看我的排行榜位置' : 'Open my leaderboard slot'}
+                  </a>
                 </div>
               </div>
             )}

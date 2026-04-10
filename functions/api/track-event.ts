@@ -1,4 +1,3 @@
-import type { Handler } from '@cloudflare/workers-types';
 import { buildCorsHeaders, handleOptions, jsonResponse, validateOrigin } from '../lib/cors';
 import { checkRateLimit } from '../lib/rate-limit';
 
@@ -63,8 +62,8 @@ function applyEvent(record: MetricsRecord, event: ShareMetricEvent): MetricsReco
   };
 }
 
-function getNamespace(context: Parameters<Handler>[0]) {
-  return context.env?.TOKCARD_METRICS as KVNamespace | undefined;
+function getNamespace(context: Parameters<PagesFunction>[0]) {
+  return (context.env as { TOKCARD_METRICS?: KVNamespace }).TOKCARD_METRICS;
 }
 
 function sanitizeMetadata(metadata?: EventRequestBody['metadata']) {
@@ -120,7 +119,7 @@ async function deriveMetricsId(payload: string) {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 12);
 }
 
-export const onRequest: Handler = async (context) => {
+export const onRequest: PagesFunction = async (context) => {
   const requestOrigin = context.request.headers.get('Origin');
 
   const originError = validateOrigin(requestOrigin);
