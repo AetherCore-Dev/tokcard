@@ -18,13 +18,13 @@ import {
   getTrustTierLabel,
   getMaxRankingDisplay,
   normalizeFeaturedProjects,
+  normalizeTheme,
   parseTokenValue,
   PLATFORMS,
-  PRESET_BACKGROUNDS,
   PROOF_SOURCE_META,
   sanitizeReferralCode,
 } from '@/lib/card';
-import { getAchievements, getGrowthPercentage } from '@/lib/achievements';
+import { getGrowthPercentage } from '@/lib/achievements';
 import { FEATURED_REGIONS } from '@/lib/leaderboard';
 import { getMetaphor, METAPHOR_CATEGORY_LABELS, type MetaphorCategory } from '@/lib/metaphor';
 import { CARD_PRESETS } from '@/lib/presets';
@@ -82,11 +82,9 @@ const SLOGAN_MODE_LABELS = {
 } as const;
 
 const CURATED_THEME_OPTIONS = [
-  { value: 'brand-dark', labelZh: '午夜墨蓝', labelEn: 'Midnight Ink', preview: 'bg-[#0f172a] border-[#1d4ed8]' },
-  { value: 'gradient-dream', labelZh: '梦境紫蓝', labelEn: 'Dream Gradient', preview: 'bg-gradient-to-r from-[#312e81] to-[#7c3aed] border-white/30' },
-  { value: 'ocean-blue', labelZh: '深海信号', labelEn: 'Ocean Signal', preview: 'bg-[#081421] border-[#38bdf8]' },
-  { value: 'minimal-gray', labelZh: '柔雾极简', labelEn: 'Soft Minimal', preview: 'bg-[#f3f4f6] border-[#d1d5db]' },
-  { value: 'brand-light', labelZh: '清晨白', labelEn: 'Morning White', preview: 'bg-[#fbfbfd] border-[#d2d2d7]' },
+  { value: 'brand-dark', labelZh: '午夜蓝', labelEn: 'Midnight', preview: 'bg-[#0f172a] border-[#334155]' },
+  { value: 'brand-light', labelZh: '纯白极简', labelEn: 'Pure White', preview: 'bg-[#fbfbfd] border-[#d2d2d7]' },
+  { value: 'minimal-gray', labelZh: '柔雾专业', labelEn: 'Soft Minimal', preview: 'bg-[#f3f4f6] border-[#cbd5e1]' },
 ] as const;
 
 interface AICaptionOption {
@@ -382,7 +380,11 @@ export default function CardEditor() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object' && parsed.username) {
-          setData(prev => ({ ...prev, ...parsed }));
+          const normalizedDraft = {
+            ...parsed,
+            theme: normalizeTheme((parsed as Partial<CardData>).theme),
+          };
+          setData(prev => ({ ...prev, ...normalizedDraft }));
           if (parsed.totalTokens) {
             setTokenInput(String(parsed.totalTokens));
           }
@@ -406,15 +408,12 @@ export default function CardEditor() {
   const previewStageHeight = Math.round(platformInfo.height * 0.4);
   const previewCardScale = Math.min(previewStageWidth / 540, previewStageHeight / 720);
   const exportCardScale = Math.min(platformInfo.width / 540, platformInfo.height / 720);
-  const stageBackground = ['brand-dark', 'terminal-green', 'cyberpunk-neon', 'ocean-blue', 'sunset-warm'].includes(data.theme)
-    ? '#05070b'
-    : '#eef2ff';
+  const stageBackground = data.theme === 'brand-dark' ? '#05070b' : '#eef2ff';
   const activeMetaphor = useMemo(
     () => data.customMetaphor.trim() || getMetaphor(data.totalTokens || 10000, data.metaphorCategory, data.locale),
     [data.customMetaphor, data.totalTokens, data.metaphorCategory, data.locale]
   );
   const rankTier = useMemo(() => getRankTier(data.totalTokens), [data.totalTokens]);
-  const achievements = useMemo(() => getAchievements(data), [data]);
   const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
   const normalizedProjects = useMemo(() => normalizeFeaturedProjects(data.projects), [data.projects]);
   const primaryProjectUrl = useMemo(() => getPrimaryProjectUrl(data), [data]);
@@ -905,27 +904,6 @@ export default function CardEditor() {
     };
     reader.readAsDataURL(file);
   };
-
-  const handleBackgroundTypeChange = useCallback((type: CardData['backgroundType']) => {
-    setData(prev => {
-      if (type === 'none') {
-        return { ...prev, backgroundType: 'none', backgroundValue: '' };
-      }
-
-      if (type === 'preset') {
-        const nextValue = prev.backgroundType === 'preset' && prev.backgroundValue
-          ? prev.backgroundValue
-          : PRESET_BACKGROUNDS[0]?.value ?? '';
-        return { ...prev, backgroundType: 'preset', backgroundValue: nextValue };
-      }
-
-      return {
-        ...prev,
-        backgroundType: 'custom',
-        backgroundValue: prev.backgroundType === 'custom' ? prev.backgroundValue : '',
-      };
-    });
-  }, []);
 
   const handleProofFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files ?? []);
@@ -1488,15 +1466,15 @@ export default function CardEditor() {
               >
                 <div>
                   <span className="text-[13px] font-semibold uppercase tracking-wide text-[#86868b]">
-                    {isZh ? '高级个性化' : 'Advanced Personalization'}
+                    {isZh ? '更多设置' : 'More options'}
                   </span>
                   <span className="ml-2 text-xs text-[#94a3b8]">
-                    {isZh ? '头像、主题、背景、比喻、签名、链接等' : 'Avatar, theme, background, metaphor, slogan, links, etc.'}
+                    {isZh ? '主题、比喻、文案，以及少量高级调节项' : 'Theme, metaphor, caption, and a few advanced controls'}
                   </span>
                 </div>
                 <span className={`text-[#86868b] transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▼</span>
               </button>
-              <div className={showAdvanced ? 'px-5 pb-5 space-y-8' : 'hidden'}>
+              <div className={showAdvanced ? 'px-5 pb-6 space-y-10' : 'hidden'}>
 
             <div>
               <div className="flex items-center justify-between gap-3 mb-3">
@@ -1550,6 +1528,18 @@ export default function CardEditor() {
                 />
               </div>
             </div>
+
+            <details className="rounded-[24px] border border-[#e5e7eb] bg-[#fafafa] px-4 py-4">
+              <summary className="cursor-pointer list-none">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '个人形象与补充信息' : 'Profile and extra tuning'}</div>
+                    <div className="mt-1 text-sm text-[#64748b]">{isZh ? '名字、签名、头像和少量补充项收进这里，主界面只保留最重要的。' : 'Name, slogan, avatar, and extra tuning live here so the main area stays focused.'}</div>
+                  </div>
+                  <span className="text-xs font-semibold text-[#94a3b8]">{isZh ? '展开' : 'Open'}</span>
+                </div>
+              </summary>
+              <div className="mt-5 space-y-6">
 
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -1625,63 +1615,6 @@ export default function CardEditor() {
                 <div className="mt-1 text-xs leading-5 text-[#94a3b8]">{rankingSignalDescription}</div>
               </div>
             </div>
-            {achievements.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {achievements.map((achievement) => (
-                  <span key={achievement.id} className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]">
-                    <span>{achievement.icon}</span>
-                    <span>{isZh ? achievement.label : achievement.labelEn}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Background */}
-            <div>
-              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '卡片底色' : 'Card background'}
-              </label>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {([
-                  { value: 'none', label: isZh ? '跟随主题' : 'Theme default' },
-                  { value: 'preset', label: isZh ? '精选配色' : 'Curated swatches' },
-                ] as const).map(option => (
-                  <button
-                    type="button"
-                    key={option.value}
-                    onClick={() => handleBackgroundTypeChange(option.value)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${data.backgroundType === option.value ? 'bg-[#1d1d1f] text-white' : 'bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e8e8ed]'}`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-
-              {data.backgroundType === 'preset' && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {PRESET_BACKGROUNDS.map(background => (
-                    <button
-                      type="button"
-                      key={background.value}
-                      onClick={() => {
-                        setData(prev => ({ ...prev, backgroundType: 'preset', backgroundValue: background.value }));
-                      }}
-                      className={`overflow-hidden rounded-xl border-2 transition-all text-left ${data.backgroundValue === background.value ? 'border-[#0071e3] ring-4 ring-[#0071e3]/10' : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'}`}
-                    >
-                      <div style={{ background: background.preview, height: 72 }} className="w-full" />
-                      <div className="px-3 py-2 text-xs font-medium text-[#1d1d1f] bg-white">
-                        {isZh ? background.labelZh : background.label}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <p className="mt-2 text-xs text-[#86868b]">
-                {isZh ? '只保留精选纯色与渐变，避免花哨背景抢掉内容重点。' : 'Only curated solids and gradients remain so the content stays in focus.'}
-              </p>
-            </div>
-
             {/* Avatar */}
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
@@ -1762,12 +1695,15 @@ export default function CardEditor() {
               )}
             </div>
 
+              </div>
+            </details>
+
             {/* Theme */}
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
                 {isZh ? '卡片主题' : 'Card Theme'}
               </label>
-                <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                <div className="grid gap-3 sm:grid-cols-3">
                 {CURATED_THEME_OPTIONS.map((theme) => (
                   <button type="button"
                     key={theme.value}
@@ -1780,7 +1716,7 @@ export default function CardEditor() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-[#86868b]">
-                {isZh ? '主题只保留 5 个精选方案，减少纠结，让 token、项目和档位更突出。' : 'Only 5 curated themes remain so token volume, project identity, and rank stay in focus.'}
+                {isZh ? '只保留 3 个最经典的方案：深色高级、纯白极简、柔雾专业。' : 'Only 3 classic directions remain: premium dark, pure white, and soft minimal.'}
               </p>
             </div>
 
@@ -1925,6 +1861,18 @@ export default function CardEditor() {
                 })}
               </div>
             </div>
+
+            <details className="rounded-[24px] border border-[#e5e7eb] bg-[#fafafa] px-4 py-4">
+              <summary className="cursor-pointer list-none">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '数据与可信度' : 'Data and trust'}</div>
+                    <div className="mt-1 text-sm text-[#64748b]">{isZh ? '项目链接、可信度设置和导入能力都放在这里，需要时再展开。' : 'Project links, trust settings, and import tools stay here when you need them.'}</div>
+                  </div>
+                  <span className="text-xs font-semibold text-[#94a3b8]">{isZh ? '展开' : 'Open'}</span>
+                </div>
+              </summary>
+              <div className="mt-5 space-y-6">
 
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
@@ -2194,6 +2142,8 @@ export default function CardEditor() {
                 </div>
               )}
               </div>
+            </div>
+            </details>
             </div>
             </div>
             </>)}

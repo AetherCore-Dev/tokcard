@@ -12,6 +12,17 @@ export interface FeaturedProject {
 
 export type TrustTier = 'self-reported' | 'screenshot-backed' | 'usage-imported' | 'strong-authenticated';
 export type ProofSource = 'claude' | 'cursor' | 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'other';
+export type CardTheme = 'brand-dark' | 'brand-light' | 'minimal-gray';
+
+const LEGACY_THEME_MAP: Record<string, CardTheme> = {
+  'bold-violet': 'brand-dark',
+  'mono-brutal': 'minimal-gray',
+  'terminal-green': 'brand-dark',
+  'cyberpunk-neon': 'brand-dark',
+  'gradient-dream': 'brand-light',
+  'sunset-warm': 'brand-light',
+  'ocean-blue': 'brand-light',
+};
 
 export interface ProofDateRange {
   start?: string;
@@ -30,17 +41,7 @@ export interface CardData {
   region?: string;
   company?: string;
   createdAt?: string;
-  theme:
-    | 'brand-dark'
-    | 'brand-light'
-    | 'bold-violet'
-    | 'mono-brutal'
-    | 'terminal-green'
-    | 'cyberpunk-neon'
-    | 'gradient-dream'
-    | 'sunset-warm'
-    | 'ocean-blue'
-    | 'minimal-gray';
+  theme: CardTheme;
   backgroundType: 'none' | 'preset' | 'custom';
   backgroundValue: string;
   modelBreakdown: ModelBreakdown[];
@@ -216,6 +217,7 @@ export const PROOF_SOURCE_META: Record<ProofSource, { label: string; labelZh: st
 
 const TRUST_TIER_VALUES: TrustTier[] = ['self-reported', 'screenshot-backed', 'usage-imported', 'strong-authenticated'];
 const PROOF_SOURCE_VALUES: ProofSource[] = ['claude', 'cursor', 'openrouter', 'openai', 'anthropic', 'gemini', 'deepseek', 'other'];
+const CARD_THEME_VALUES: CardTheme[] = ['brand-dark', 'brand-light', 'minimal-gray'];
 
 export function normalizeTrustTier(value?: string): TrustTier {
   return TRUST_TIER_VALUES.includes(value as TrustTier) ? (value as TrustTier) : 'self-reported';
@@ -223,6 +225,12 @@ export function normalizeTrustTier(value?: string): TrustTier {
 
 export function normalizeProofSource(value?: string): ProofSource | undefined {
   return PROOF_SOURCE_VALUES.includes(value as ProofSource) ? (value as ProofSource) : undefined;
+}
+
+export function normalizeTheme(value?: unknown): CardTheme {
+  if (typeof value !== 'string') return DEFAULT_CARD_DATA.theme;
+  if (CARD_THEME_VALUES.includes(value as CardTheme)) return value as CardTheme;
+  return LEGACY_THEME_MAP[value] ?? DEFAULT_CARD_DATA.theme;
 }
 
 export function getTrustTierLabel(tier: TrustTier, locale: 'zh' | 'en'): string {
@@ -626,7 +634,7 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         region: normalizeRegion(payload.reg),
         company: normalizeCompany(payload.org),
         createdAt: payload.ca,
-        theme: payload.th ?? DEFAULT_CARD_DATA.theme,
+        theme: normalizeTheme(payload.th),
         backgroundType: validatedBackground.backgroundType,
         backgroundValue: validatedBackground.backgroundValue,
         modelBreakdown: normalizeModelBreakdown(payload.mb),
@@ -727,7 +735,7 @@ export function decodeCardTemplatePreset(value: string): Partial<CardData> | nul
       channel: preset.c ?? DEFAULT_CARD_DATA.channel,
       region: normalizeRegion(preset.reg),
       company: normalizeCompany(preset.org),
-      theme: preset.th ?? DEFAULT_CARD_DATA.theme,
+      theme: normalizeTheme(preset.th),
       backgroundType: validatedBg.backgroundType,
       backgroundValue: validatedBg.backgroundValue,
       modelBreakdown: normalizeModelBreakdown(preset.mb),
