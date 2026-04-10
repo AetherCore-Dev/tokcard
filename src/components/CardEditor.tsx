@@ -417,7 +417,20 @@ export default function CardEditor() {
   const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
   const normalizedProjects = useMemo(() => normalizeFeaturedProjects(data.projects), [data.projects]);
   const primaryProjectUrl = useMemo(() => getPrimaryProjectUrl(data), [data]);
-  const previewCardData = useMemo(() => ({ ...data, qrcodeUrl: siteOrigin }), [data, siteOrigin]);
+  const previewCardData = useMemo(() => {
+    const previewBaseCard = {
+      ...data,
+      referralCode: sanitizeReferralCode(data.referralCode || data.username || data.primaryProjectName),
+    };
+    const previewShareLink = siteOrigin
+      ? buildSharedCardUrl(previewBaseCard, siteOrigin) ?? siteOrigin
+      : '';
+
+    return {
+      ...previewBaseCard,
+      qrcodeUrl: previewShareLink,
+    };
+  }, [data, siteOrigin]);
   const exportCardData = exportCardSnapshot ?? previewCardData;
   const readinessItems = useMemo(() => ([
     {
@@ -1273,16 +1286,16 @@ export default function CardEditor() {
             type="button"
             aria-label={isZh ? '关闭编辑面板并返回预览' : 'Close editor and return to preview'}
             onClick={() => setStep(3)}
-            className="lg:hidden fixed inset-0 z-[35] bg-[#0f172a]/28 backdrop-blur-[2px]"
+            className="lg:hidden fixed inset-0 z-[35] bg-[#0f172a]/38 backdrop-blur-sm"
           />
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 xl:gap-12">
           {/* Left: Form */}
-          <div className={`min-w-0 ${showMobileSheet ? 'fixed inset-x-0 bottom-0 z-40 max-h-[78vh] overflow-y-auto rounded-t-[28px] border border-[#dbe4ff] bg-[#fbfbfd] px-4 pt-4 pb-32 shadow-[0_-24px_80px_rgba(15,23,42,0.24)]' : 'hidden'} lg:block lg:space-y-8 lg:relative lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 lg:shadow-none`}>
+          <div className={`min-w-0 ${showMobileSheet ? 'fixed inset-x-0 bottom-0 z-40 max-h-[78vh] overflow-y-auto rounded-t-[28px] border border-[#dbe4ff] bg-[#fbfbfd]/96 px-4 pt-4 pb-32 shadow-[0_-28px_90px_rgba(15,23,42,0.30)] backdrop-blur-xl' : 'hidden'} lg:block lg:space-y-8 lg:relative lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 lg:shadow-none`}>
             {showMobileSheet && (
               <div className="mb-4 lg:hidden">
-                <div className="mx-auto h-1.5 w-12 rounded-full bg-[#dbe4ff]" />
+                <div className="mx-auto h-1.5 w-16 rounded-full bg-[#cbd5e1] shadow-[0_1px_0_rgba(255,255,255,0.7)]" />
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '编辑卡片' : 'Edit card'}</div>
