@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "deploy": "npm run build && wrangler pages deploy dist --project-name tokcard",
-    "astro": "astro"
+    "astro": "astro",
+    "ux:midscene": "tsx scripts/midscene-inspect.ts"
   },
   "keywords": [
     "ai",
@@ -33,6 +34,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260409.1",
+    "@midscene/web": "^1.7.3",
+    "@playwright/test": "^1.59.1",
+    "playwright": "^1.59.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

@@ -348,6 +348,16 @@ export default function SharedCardLanding() {
           </div>
         </section>
 
+        <section className="mt-5 rounded-[28px] border border-[#dbe4ff] bg-white/92 p-5 shadow-sm">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '这张卡先让你看到什么' : 'What this card leads with'}</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-[#0f172a]">{isZh ? '先看 Token，再看项目，最后看排名。' : 'Token first, project second, rank third.'}</div>
+          <div className="mt-4 flex flex-wrap gap-2 text-sm text-[#475569]">
+            <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1.5">🔥 {isZh ? 'Token 战绩' : 'Token proof'}</span>
+            <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1.5">🧩 {isZh ? '项目入口' : 'Project story'}</span>
+            <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1.5">🏆 {isZh ? '榜单证明' : 'Rank signal'}</span>
+          </div>
+        </section>
+
         {/* 2. Token -> Project -> Rank summary */}
         <section className="mt-5 grid gap-3">
           <div className="rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
@@ -368,7 +378,7 @@ export default function SharedCardLanding() {
           </div>
 
           <div className="rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '2 · 主项目' : '2 · Main project'}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '2 · 代表项目' : '2 · Signature project'}</div>
             <div className="mt-3 text-2xl font-semibold tracking-tight text-[#0f172a]">{primaryProjectName}</div>
             <p className="mt-2 text-sm leading-6 text-[#64748b]">{primaryProjectPitch}</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -409,7 +419,7 @@ export default function SharedCardLanding() {
           </div>
 
           <div className="rounded-[28px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '3 · 排名反馈' : '3 · Rank signal'}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '3 · 榜单证明' : '3 · Rank proof'}</div>
             {rankSummary ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
@@ -428,23 +438,16 @@ export default function SharedCardLanding() {
             ) : (
               <p className="mt-3 text-sm leading-6 text-[#64748b]">
                 {rankTier
-                  ? (isZh ? '这张卡已经带上档位信号。排行榜数据同步后，会在这里显示更明确的位置。' : 'This card already carries a tier signal. A clearer leaderboard position will appear here once ranking data syncs.')
-                  : (isZh ? '这张卡暂时还没有可显示的排行数据。' : 'This card does not have ranking data to show yet.')}
+                  ? (isZh ? '这张卡已经带上榜单信号。数据同步后，这里会显示更明确的全球位置和比较结果。' : 'This card already carries a leaderboard signal. Once the data syncs, this section will show a clearer global position.')
+                  : (isZh ? '这张卡还没有进入可展示排名的状态，但项目和 Token 已经可以先被看到。' : 'This card does not show ranking yet, but the token and project can already do the talking.')}
               </p>
             )}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4">
               <a
                 href={rankUrl}
                 className="flex items-center justify-center w-full py-3.5 rounded-full border border-[#dbe4ff] bg-white font-semibold text-[#0f172a] shadow-sm hover:border-[#0071e3]"
               >
                 {isZh ? '查看 Token 排名' : 'See token ranking'}
-              </a>
-              <a
-                href={createUrl}
-                onClick={() => { void handleTrackMetric('share:clone'); }}
-                className="flex items-center justify-center w-full py-3.5 rounded-full bg-[#0071e3] font-semibold text-white shadow-lg shadow-[#0071e3]/20"
-              >
-                {isZh ? '我也要做一张' : 'Make mine'}
               </a>
             </div>
           </div>
@@ -459,7 +462,7 @@ export default function SharedCardLanding() {
             onClick={() => { void handleTrackMetric('share:clone'); }}
             className="flex items-center justify-center w-full py-4 rounded-full bg-[#0071e3] text-white font-semibold text-lg shadow-[0_18px_40px_rgba(0,113,227,0.28)]"
           >
-            {isZh ? '我也要做一张' : 'Make mine'}
+            {isZh ? '做一张属于我的名片' : 'Make my card'}
           </a>
         </div>
       </div>

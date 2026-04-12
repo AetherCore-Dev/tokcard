@@ -310,6 +310,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
   const rankingSignalLabel = getRankingSignalLabel(rankTier, data.trustTier, data.locale);
   const rankingSignalDescription = getRankingSignalDescription(rankTier, data.trustTier, data.locale);
   const trustSummary = [trustTierLabel, rankingSignalLabel, proofSourceLabel, proofRangeLabel].filter(Boolean).join(' · ');
+  const messageLine = data.slogan.trim() || metaphor;
 
   const themeKey = normalizeTheme(data.theme);
   const tc = THEME_TOKENS[themeKey];
@@ -471,17 +472,17 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 gap: 6 * s,
                 padding: `${5 * s}px ${10 * s}px`,
                 borderRadius: 999,
-                background: `${rankTier.accent}14`,
-                border: `1px solid ${rankTier.accent}30`,
+                background: tc.panelBg,
+                border: `1px solid ${tc.panelBorder}`,
                 fontSize: 10 * s,
                 fontWeight: 800,
-                color: rankTier.accent,
+                color: tc.textSecondary,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
               }}
             >
-              <span style={{ lineHeight: 1 }}>{rankTier.badge}</span>
-              <span>{isZh ? rankTier.label : rankTier.labelEn}</span>
+              <span style={{ lineHeight: 1 }}>{CHANNEL_ICONS[data.channel] || '⚪'}</span>
+              <span>{data.channel}</span>
             </div>
           </div>
 
@@ -544,15 +545,15 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 9 * s, fontWeight: 700, color: tc.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                {isZh ? '开发者身份' : 'Builder identity'}
+                {isZh ? 'AI builder card' : 'AI builder card'}
               </div>
               <div style={{ marginTop: 4 * s, overflow: 'hidden' }}>
                 <span
                   style={{
                     display: 'block',
-                    fontSize: 24 * s,
+                    fontSize: 20 * s,
                     fontWeight: 900,
-                    letterSpacing: '-0.04em',
+                    letterSpacing: '-0.03em',
                     color: tc.text,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -562,8 +563,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   {data.username || 'anonymous'}
                 </span>
               </div>
-              <div style={{ marginTop: 8 * s, fontSize: 10 * s, color: tc.textDim, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                {isZh ? 'Token · Rank · Project' : 'Token · Rank · Project'}
+              <div style={{ marginTop: 8 * s, fontSize: 10 * s, color: tc.textDim, letterSpacing: '0.06em' }}>
+                {isZh ? '先看战绩，再看项目，最后看排名。' : 'Lead with tokens, then project, then rank.'}
               </div>
             </div>
           </div>
@@ -638,17 +639,15 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   gap: 5 * s,
                   padding: `${6 * s}px ${10 * s}px`,
                   borderRadius: 999,
-                  background: `${rankTier.accent}14`,
-                  border: `1px solid ${rankTier.accent}30`,
+                  background: tc.barTrack,
+                  border: `1px solid ${tc.panelBorder}`,
                   fontSize: 10 * s,
-                  fontWeight: 800,
-                  color: rankTier.accent,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
+                  fontWeight: 700,
+                  color: tc.textSecondary,
                 }}
               >
-                <span>{rankTier.badge}</span>
-                <span>{rankingSignalLabel}</span>
+                <span>{CHANNEL_ICONS[data.channel] || '⚪'}</span>
+                <span>{data.channel}</span>
               </span>
               <span
                 style={{
@@ -664,8 +663,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   color: tc.textSecondary,
                 }}
               >
-                <span>{CHANNEL_ICONS[data.channel] || '⚪'}</span>
-                <span>{tokenShort}</span>
+                <span>{trustTierLabel}</span>
               </span>
             </div>
           </div>
@@ -725,15 +723,10 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
             }}
           >
             <div style={{ fontSize: 10 * s, fontWeight: 800, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.16em' }}>
-              {isZh ? 'AI 比喻' : 'AI metaphor'}
+              {isZh ? '传播钩子' : 'Social hook'}
             </div>
-            <div style={{ marginTop: 8 * s, display: 'flex', alignItems: 'flex-start', gap: 6 * s }}>
-              <span style={{ fontSize: 22 * s, lineHeight: 1, color: `${tc.accent}35`, fontFamily: 'Georgia, "Times New Roman", serif', marginTop: -2 * s }}>
-                “
-              </span>
-              <span style={{ fontSize: 14 * s, fontWeight: 600, lineHeight: 1.6, color: tc.textSecondary }}>
-                {metaphor}
-              </span>
+            <div style={{ marginTop: 8 * s, fontSize: 14 * s, fontWeight: 600, lineHeight: 1.6, color: tc.textSecondary }}>
+              {messageLine}
             </div>
           </div>
         </div>
@@ -746,10 +739,10 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               <div style={{ fontSize: 9 * s, color: tc.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 4 * s }}>
                 {isZh ? '可传播个人名片' : 'Share-ready identity card'}
               </div>
-              <div style={{ fontSize: 9 * s, color: tc.textDim, marginBottom: 6 * s, letterSpacing: '0.03em', lineHeight: 1.4 }}>
-                {trustSummary}
+              <div style={{ fontSize: 10 * s, color: tc.textDim, marginTop: 6 * s, letterSpacing: '0.03em', lineHeight: 1.5 }}>
+                {trustSummary || (isZh ? 'Token、项目和排名会跟着这张卡一起传播。' : 'Token, project, and rank travel together with this card.')}
               </div>
-              <div style={{ fontSize: 16 * s, fontWeight: 900, letterSpacing: '-0.03em', color: tc.text, display: 'flex', alignItems: 'center', gap: 6 * s }}>
+              <div style={{ marginTop: 10 * s, fontSize: 16 * s, fontWeight: 900, letterSpacing: '-0.03em', color: tc.text, display: 'flex', alignItems: 'center', gap: 6 * s }}>
                 <span
                   style={{
                     display: 'inline-flex',
