@@ -3,6 +3,7 @@ import CardRenderer from './CardRenderer';
 import {
   buildCreateFromTemplateUrl,
   decodeSharedCardPayload,
+  formatTokenValueEstimate,
   formatTokens,
   type DecodedSharedCard,
 } from '@/lib/card';
@@ -364,7 +365,8 @@ export default function SharedCardLanding() {
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '1 · Token 战绩' : '1 · Token signal'}</div>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <div className="text-3xl font-semibold tracking-tight text-[#0f172a]">{formatTokens(shared.card.totalTokens)} tokens</div>
+                <div className="text-3xl font-semibold tracking-tight text-[#0f172a]">{formatTokens(shared.card.totalTokens, shared.card.locale)}</div>
+                <div className="mt-2 text-sm font-medium text-[#475569]">{formatTokenValueEstimate(shared.card.totalTokens, shared.card.locale)}</div>
                 <div className="mt-2 text-sm text-[#64748b]">
                   @{shared.card.username || (isZh ? '开发者' : 'builder')} {isZh ? '本月的 AI 消耗量。' : 'this month in AI usage.'}
                 </div>

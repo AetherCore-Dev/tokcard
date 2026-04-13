@@ -24,6 +24,26 @@ function normalizeCardId(value?: string): string {
   return /^[a-z0-9]{4,16}$/.test(normalized) ? normalized : '';
 }
 
+function getChannelLabel(channel: string, isZh: boolean): string {
+  const matched = CHANNEL_FILTERS.find((item) => item.value === channel);
+  return matched ? (isZh ? matched.labelZh : matched.labelEn) : channel;
+}
+
+function formatUpdatedAt(updatedAt: string | undefined, isZh: boolean): string {
+  if (!updatedAt) return isZh ? '刚刚更新' : 'Just updated';
+
+  try {
+    return new Date(updatedAt).toLocaleDateString(isZh ? 'zh-CN' : 'en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return updatedAt;
+  }
+}
+
 export default function Leaderboard() {
   const [data, setData] = useState<LeaderboardIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -162,11 +182,13 @@ export default function Leaderboard() {
   const rangeEnd = data ? (data.meta?.offset ?? 0) + data.entries.length : 0;
   const pageTitle = browserIsZh ? 'Token 与项目榜' : 'Token & Project Leaderboard';
   const advancedFiltersVisible = showMoreFilters || Boolean(region || companyFilter || time !== 'all');
+  const hasFilters = Boolean(region || companyFilter || time !== 'all' || channel !== 'all');
   const pageSubtitle = data && data.total > 0
     ? (browserIsZh
-      ? `${data.total} 位开发者符合当前筛选 · 当前显示 ${rangeStart}-${rangeEnd} · 顺手看看他们在做什么项目`
-      : `${data.total} builders match current filters · showing ${rangeStart}-${rangeEnd} · see what they are building`)
-    : (browserIsZh ? '还没有符合条件的上榜者' : 'No builders match the current filters');
+      ? `${data.total} 位开发者符合当前筛选，当前显示 ${rangeStart}-${rangeEnd}。先看谁最能打，再顺手看他们在做什么项目。`
+      : `${data.total} builders match the current filters and you are seeing ${rangeStart}-${rangeEnd}. Start with token intensity, then inspect the projects behind it.`)
+    : (browserIsZh ? '这里既是排行榜，也是发现别人项目的入口。' : 'This is both a ranking board and a place to discover what other builders are shipping.');
+  const updatedAtLabel = useMemo(() => formatUpdatedAt(data?.updatedAt, browserIsZh), [browserIsZh, data?.updatedAt]);
 
   const buildRankHref = useCallback((overrides: { region?: string; company?: string }) => {
     const params = new URLSearchParams();
@@ -188,271 +210,333 @@ export default function Leaderboard() {
   if (error) return <ErrorState message={error} />;
 
   return (
-    <div className="max-w-4xl mx-auto w-full px-4 pb-32">
-      <div className="pt-6 pb-5">
-        <div className="rounded-[28px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-sm">
-          <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{pageTitle}</h1>
-            <p className="mt-2 text-sm text-[#6b7280]">{pageSubtitle}</p>
-            <p className="mt-3 text-sm leading-6 text-[#475569]">{browserIsZh ? '先看谁最能打，再顺手看看他们在做什么项目。' : 'See who is pushing the hardest with AI, then inspect what they are building.'}</p>
-          </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-            <input
-              type="text"
-              value={focusInput}
-              onChange={(e) => setFocusInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setPage(1);
-                  setHighlightId(normalizeCardId(focusInput));
-                }
-              }}
-              placeholder={browserIsZh ? '输入卡片 ID，快速查看我的位置' : 'Find a card by ID'}
-              className="min-h-11 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#1d1d1f] placeholder-[#94a3b8] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                setPage(1);
-                setHighlightId(normalizeCardId(focusInput));
-              }}
-              className="min-h-11 rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white"
-            >
-              {browserIsZh ? '查看位置' : 'Find rank'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowMoreFilters((current) => !current)}
-              className="min-h-11 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569]"
-            >
-              {advancedFiltersVisible ? (browserIsZh ? '收起筛选' : 'Hide filters') : (browserIsZh ? '更多筛选' : 'More filters')}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-[28px] border border-[#dbe4ff] bg-white/90 p-4 md:p-5 shadow-sm backdrop-blur mb-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
-            {browserIsZh ? '按 AI 渠道筛选' : 'Filter by AI channel'}
-          </div>
-          <div className="text-[11px] text-[#94a3b8] md:hidden">
-            {browserIsZh ? '左右滑动查看更多' : 'Swipe for more'}
-          </div>
-        </div>
-        <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-white/95 to-transparent md:hidden" />
-          <div className="flex gap-2 overflow-x-auto pb-2 pr-6 md:pr-0" style={{ scrollbarWidth: 'none' }}>
-          {CHANNEL_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => {
-                setPage(1);
-                setHighlightId('');
-                setChannel(f.value);
-              }}
-              className={`flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                channel === f.value
-                  ? 'bg-[#0071e3] text-white shadow-md'
-                  : 'bg-white border border-[#dbe4ff] text-[#64748b] hover:border-[#0071e3]'
-              }`}
-            >
-              <span>{f.icon}</span>
-              <span>{browserIsZh ? f.labelZh : f.labelEn}</span>
-            </button>
-          ))}
-          </div>
-        </div>
-
-        {advancedFiltersVisible && (
-          <div className="mt-4 space-y-4">
-            <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_220px]">
-              <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '地区 / 国家' : 'Region / Country'}</span>
-                <select
-                  value={region}
-                  onChange={(e) => {
-                    setPage(1);
-                    setHighlightId('');
-                    setRegion(e.target.value);
-                  }}
-                  className="min-h-11 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#1d1d1f] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
-                >
-                  {FEATURED_REGIONS.map((item) => (
-                    <option key={item.value || 'all'} value={item.value}>{item.flag} {browserIsZh ? item.label : item.labelEn}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '公司 / 组织' : 'Company / Org'}</span>
-                <div className="flex gap-2">
-                  <input
-                    list="leaderboard-company-suggestions"
-                    type="text"
-                    value={companyInput}
-                    onChange={(e) => setCompanyInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        setPage(1);
-                        setHighlightId('');
-                        setCompanyFilter(companyInput.trim());
-                      }
-                    }}
-                    placeholder={browserIsZh ? '输入公司或组织名' : 'Search company or organization'}
-                    className="min-h-11 flex-1 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#1d1d1f] placeholder-[#94a3b8] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPage(1);
-                      setHighlightId('');
-                      setCompanyFilter(companyInput.trim());
-                    }}
-                    className="min-h-11 rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white"
-                  >
-                    {browserIsZh ? '应用' : 'Apply'}
-                  </button>
+    <div className="mx-auto w-full max-w-5xl px-4 pb-16">
+      <section className="pt-6 pb-5">
+        <div className="rounded-[32px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f7faff_55%,#eef4ff_100%)] p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
+                  {browserIsZh ? '先看 Token，再看项目' : 'Tokens first, projects second'}
                 </div>
-                <datalist id="leaderboard-company-suggestions">
-                  {companySuggestions.map((item) => <option key={item} value={item} />)}
-                </datalist>
-              </label>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#0f172a] md:text-4xl">{pageTitle}</h1>
+                <p className="mt-3 text-sm leading-6 text-[#475569]">{pageSubtitle}</p>
+              </div>
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                <StatPill
+                  label={browserIsZh ? '上榜人数' : 'Builders'}
+                  value={data && data.total > 0 ? String(data.total) : '0'}
+                />
+                <StatPill
+                  label={browserIsZh ? '当前页' : 'Page'}
+                  value={data && data.total > 0 ? `${currentPage}/${totalPages}` : '1/1'}
+                />
+                <StatPill
+                  label={browserIsZh ? '更新时间' : 'Updated'}
+                  value={updatedAtLabel}
+                />
+              </div>
+            </div>
 
-              <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '时间范围' : 'Time Range'}</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {TIME_FILTERS.map((item) => (
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                <input
+                  type="text"
+                  value={focusInput}
+                  onChange={(e) => setFocusInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setPage(1);
+                      setHighlightId(normalizeCardId(focusInput));
+                    }
+                  }}
+                  placeholder={browserIsZh ? '输入卡片 ID，快速看我的位置' : 'Find a card by ID'}
+                  className="min-h-12 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#0f172a] placeholder-[#94a3b8] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPage(1);
+                    setHighlightId(normalizeCardId(focusInput));
+                  }}
+                  className="min-h-12 rounded-2xl bg-[#111827] px-5 text-sm font-semibold text-white"
+                >
+                  {browserIsZh ? '查看位置' : 'Find rank'}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMoreFilters((current) => !current)}
+                className="min-h-12 rounded-2xl border border-[#dbe4ff] bg-white px-5 text-sm font-medium text-[#475569]"
+              >
+                {advancedFiltersVisible ? (browserIsZh ? '收起高级筛选' : 'Hide advanced filters') : (browserIsZh ? '更多筛选' : 'More filters')}
+              </button>
+            </div>
+
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
+                  {browserIsZh ? '按 AI 渠道筛选' : 'Filter by AI channel'}
+                </div>
+                <div className="text-[11px] text-[#94a3b8] md:hidden">
+                  {browserIsZh ? '左右滑动查看更多' : 'Swipe for more'}
+                </div>
+              </div>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#eef4ff] to-transparent md:hidden" />
+                <div className="flex gap-2 overflow-x-auto pb-1 pr-6 md:pr-0" style={{ scrollbarWidth: 'none' }}>
+                  {CHANNEL_FILTERS.map((item) => (
                     <button
                       key={item.value}
                       type="button"
                       onClick={() => {
                         setPage(1);
                         setHighlightId('');
-                        setTime(item.value);
+                        setChannel(item.value);
                       }}
-                      className={`min-h-11 rounded-2xl px-3 text-sm font-medium transition-all ${
-                        time === item.value
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
+                        channel === item.value
                           ? 'bg-[#0071e3] text-white shadow-md'
-                          : 'border border-[#dbe4ff] bg-white text-[#64748b] hover:border-[#0071e3]'
+                          : 'border border-[#dbe4ff] bg-white text-[#475569] hover:border-[#0071e3]'
                       }`}
                     >
-                      {browserIsZh ? item.labelZh : item.labelEn}
+                      <span>{item.icon}</span>
+                      <span>{browserIsZh ? item.labelZh : item.labelEn}</span>
                     </button>
                   ))}
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {(region || companyFilter || time !== 'all' || channel !== 'all') && (
-          <>
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#64748b]">
-              <span className="font-medium">{browserIsZh ? '当前筛选：' : 'Active filters:'}</span>
-              {channel !== 'all' && <FilterChip label={`${browserIsZh ? '渠道' : 'Channel'} · ${browserIsZh ? CHANNEL_FILTERS.find((item) => item.value === channel)?.labelZh : CHANNEL_FILTERS.find((item) => item.value === channel)?.labelEn ?? channel}`} onClear={() => { setPage(1); setHighlightId(''); setChannel('all'); }} />}
-              {region && <FilterChip label={`${browserIsZh ? '地区' : 'Region'} · ${getRegionLabel(region, browserIsZh)}`} onClear={() => { setPage(1); setHighlightId(''); setRegion(''); }} />}
-              {companyFilter && <FilterChip label={`${browserIsZh ? '组织' : 'Org'} · ${companyFilter}`} onClear={() => { setPage(1); setHighlightId(''); setCompanyInput(''); setCompanyFilter(''); }} />}
-              {time !== 'all' && <FilterChip label={`${browserIsZh ? '时间' : 'Time'} · ${browserIsZh ? TIME_FILTERS.find((item) => item.value === time)?.labelZh : TIME_FILTERS.find((item) => item.value === time)?.labelEn ?? time}`} onClear={() => { setPage(1); setHighlightId(''); setTime('all'); }} />}
-            </div>
-            <div className="mt-3 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-sm text-[#475569]">
-              {companyFilter
-                ? (browserIsZh
-                  ? `正在查看 ${companyFilter} 的成员榜单${region ? ` · ${getRegionLabel(region, true)}` : ''}`
-                  : `Viewing builders from ${companyFilter}${region ? ` · ${getRegionLabel(region, false)}` : ''}`)
-                : region
-                  ? (browserIsZh ? `正在查看 ${getRegionLabel(region, true)} 的开发者榜单` : `Viewing builders in ${getRegionLabel(region, false)}`)
-                  : (browserIsZh ? '当前榜单已按所选维度过滤' : 'The leaderboard is filtered by your current selections')}
-            </div>
-          </>
-        )}
-      </div>
+            {advancedFiltersVisible && (
+              <div className="grid gap-3 rounded-[24px] border border-[#dbe4ff] bg-white/80 p-4 md:grid-cols-[180px_minmax(0,1fr)_220px]">
+                <label className="flex flex-col gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '地区 / 国家' : 'Region / Country'}</span>
+                  <select
+                    value={region}
+                    onChange={(e) => {
+                      setPage(1);
+                      setHighlightId('');
+                      setRegion(e.target.value);
+                    }}
+                    className="min-h-11 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#0f172a] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
+                  >
+                    {FEATURED_REGIONS.map((item) => (
+                      <option key={item.value || 'all'} value={item.value}>{item.flag} {browserIsZh ? item.label : item.labelEn}</option>
+                    ))}
+                  </select>
+                </label>
 
-      {topCompanies.length > 0 && (
-        <div className="mb-5 rounded-[28px] border border-[#dbe4ff] bg-white p-4 md:p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '热门组织' : 'Top organizations'}</div>
-              <div className="mt-1 text-sm text-[#64748b]">{browserIsZh ? '看看哪些公司/组织在高强度使用 AI。' : 'See which organizations are using AI most aggressively.'}</div>
-            </div>
-            <div className="text-xs text-[#94a3b8]">{browserIsZh ? '按当前筛选计算' : 'Calculated from current filters'}</div>
+                <label className="flex flex-col gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '公司 / 组织' : 'Company / Org'}</span>
+                  <div className="flex gap-2">
+                    <input
+                      list="leaderboard-company-suggestions"
+                      type="text"
+                      value={companyInput}
+                      onChange={(e) => setCompanyInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setPage(1);
+                          setHighlightId('');
+                          setCompanyFilter(companyInput.trim());
+                        }
+                      }}
+                      placeholder={browserIsZh ? '输入公司或组织名' : 'Search company or organization'}
+                      className="min-h-11 flex-1 rounded-2xl border border-[#dbe4ff] bg-white px-4 text-sm text-[#0f172a] placeholder-[#94a3b8] outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPage(1);
+                        setHighlightId('');
+                        setCompanyFilter(companyInput.trim());
+                      }}
+                      className="min-h-11 rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white"
+                    >
+                      {browserIsZh ? '应用' : 'Apply'}
+                    </button>
+                  </div>
+                  <datalist id="leaderboard-company-suggestions">
+                    {companySuggestions.map((item) => <option key={item} value={item} />)}
+                  </datalist>
+                </label>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '时间范围' : 'Time range'}</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TIME_FILTERS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => {
+                          setPage(1);
+                          setHighlightId('');
+                          setTime(item.value);
+                        }}
+                        className={`min-h-11 rounded-2xl px-3 text-sm font-medium transition-all ${
+                          time === item.value
+                            ? 'bg-[#0071e3] text-white shadow-md'
+                            : 'border border-[#dbe4ff] bg-white text-[#475569] hover:border-[#0071e3]'
+                        }`}
+                      >
+                        {browserIsZh ? item.labelZh : item.labelEn}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {hasFilters && (
+              <div className="flex flex-wrap items-center gap-2 rounded-[20px] border border-[#dbe4ff] bg-white/80 px-4 py-3 text-xs text-[#64748b]">
+                <span className="font-medium">{browserIsZh ? '当前筛选：' : 'Active filters:'}</span>
+                {channel !== 'all' && (
+                  <FilterChip
+                    label={`${browserIsZh ? '渠道' : 'Channel'} · ${browserIsZh ? CHANNEL_FILTERS.find((item) => item.value === channel)?.labelZh : CHANNEL_FILTERS.find((item) => item.value === channel)?.labelEn ?? channel}`}
+                    onClear={() => {
+                      setPage(1);
+                      setHighlightId('');
+                      setChannel('all');
+                    }}
+                  />
+                )}
+                {region && (
+                  <FilterChip
+                    label={`${browserIsZh ? '地区' : 'Region'} · ${getRegionLabel(region, browserIsZh)}`}
+                    onClear={() => {
+                      setPage(1);
+                      setHighlightId('');
+                      setRegion('');
+                    }}
+                  />
+                )}
+                {companyFilter && (
+                  <FilterChip
+                    label={`${browserIsZh ? '组织' : 'Org'} · ${companyFilter}`}
+                    onClear={() => {
+                      setPage(1);
+                      setHighlightId('');
+                      setCompanyInput('');
+                      setCompanyFilter('');
+                    }}
+                  />
+                )}
+                {time !== 'all' && (
+                  <FilterChip
+                    label={`${browserIsZh ? '时间' : 'Time'} · ${browserIsZh ? TIME_FILTERS.find((item) => item.value === time)?.labelZh : TIME_FILTERS.find((item) => item.value === time)?.labelEn ?? time}`}
+                    onClear={() => {
+                      setPage(1);
+                      setHighlightId('');
+                      setTime('all');
+                    }}
+                  />
+                )}
+              </div>
+            )}
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {topCompanies.map(({ name, count }) => (
-              <a
-                key={name}
-                href={buildRankHref({ company: name })}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-4 text-sm font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
-              >
-                <span>{name}</span>
-                <span className="text-xs text-[#94a3b8]">{count} {browserIsZh ? '人' : 'people'}</span>
-              </a>
-            ))}
-          </div>
+        </div>
+      </section>
+
+      {focusNotFound && highlightId && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {browserIsZh ? '该卡片不在当前筛选结果中，试试清除部分筛选条件。' : 'This card is not in the current filtered result. Try clearing some filters.'}
         </div>
       )}
 
       {data && data.entries.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="space-y-3 pb-24">
-          {focusNotFound && highlightId && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {browserIsZh ? '该卡片不在当前筛选结果中，试试清除筛选条件' : 'This card is not in current filters. Try clearing filters.'}
+        <>
+          <div className="space-y-3">
+            {data?.entries.map((entry, index) => (
+              <LeaderboardRow
+                key={entry.id}
+                entry={entry}
+                rank={(data?.meta?.offset ?? 0) + index + 1}
+                highlight={entry.id === highlightId}
+                buildRankHref={buildRankHref}
+                isZh={browserIsZh}
+              />
+            ))}
+          </div>
+
+          {data && data.total > PAGE_SIZE && (
+            <div className="mt-5 flex flex-col gap-3 rounded-[24px] border border-[#dbe4ff] bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+              <div className="text-sm text-[#64748b]">
+                {browserIsZh ? '第 ' : 'Page '}<span className="font-semibold text-[#111827]">{currentPage}</span>{browserIsZh ? ` / ${totalPages} 页` : ` / ${totalPages}`}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage <= 1}
+                  className="min-h-10 rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569] disabled:opacity-40"
+                >
+                  {browserIsZh ? '上一页' : 'Previous'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="min-h-10 rounded-full bg-[#111827] px-4 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  {browserIsZh ? '下一页' : 'Next'}
+                </button>
+              </div>
             </div>
           )}
-          {data?.entries.map((entry, index) => (
-            <LeaderboardRow
-              key={entry.id}
-              entry={entry}
-              rank={(data?.meta?.offset ?? 0) + index + 1}
-              highlight={entry.id === highlightId}
-              buildRankHref={buildRankHref}
-              isZh={browserIsZh}
-            />
-          ))}
-        </div>
-      )}
 
-      {data && data.total > PAGE_SIZE && (
-        <div className="mt-5 flex items-center justify-between gap-3 rounded-[24px] border border-[#dbe4ff] bg-white p-4 shadow-sm">
-          <div className="text-sm text-[#64748b]">
-            {browserIsZh ? '第 ' : 'Page '}<span className="font-semibold text-[#111827]">{currentPage}</span>{browserIsZh ? ` / ${totalPages} 页` : ` / ${totalPages}`}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage <= 1}
-              className="min-h-10 rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569] disabled:opacity-40"
-            >
-              {browserIsZh ? '上一页' : 'Previous'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage >= totalPages}
-              className="min-h-10 rounded-full bg-[#111827] px-4 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              {browserIsZh ? '下一页' : 'Next'}
-            </button>
-          </div>
-        </div>
-      )}
+          {topCompanies.length > 0 && (
+            <div className="mt-5 rounded-[24px] border border-[#dbe4ff] bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '当前热门组织' : 'Popular orgs right now'}</div>
+                  <div className="mt-1 text-sm text-[#64748b]">{browserIsZh ? '放在列表后面看，避免它抢走主榜单的注意力。' : 'Placed after the main list so the ranking stays easier to scan first.'}</div>
+                </div>
+                <div className="text-xs text-[#94a3b8]">{browserIsZh ? '基于当前筛选' : 'Based on current filters'}</div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {topCompanies.map(({ name, count }) => (
+                  <a
+                    key={name}
+                    href={buildRankHref({ company: name })}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-4 text-sm font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
+                  >
+                    <span>{name}</span>
+                    <span className="text-xs text-[#94a3b8]">{count} {browserIsZh ? '人' : 'people'}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
-      {data && data.entries.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 px-4 pt-2 bg-gradient-to-t from-[#fbfbfd] via-[#fbfbfd] to-transparent" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
-          <div className="max-w-4xl mx-auto pointer-events-auto">
-            <a
-              href="/create"
-              className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-semibold text-lg bg-[#0071e3] text-white shadow-[0_18px_40px_rgba(0,113,227,0.28)] hover:scale-[1.01] active:scale-[0.99] transition-all"
-            >
-              {browserIsZh ? '我也要上榜' : 'Create my card'}
-            </a>
+          <div className="mt-6 rounded-[28px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '我也要上榜' : 'Join the board'}</div>
+                <div className="mt-2 text-lg font-semibold text-[#0f172a]">{browserIsZh ? '先做一张 TokCard，再把自己的项目带进这个榜单。' : 'Create a TokCard first, then bring your project into this leaderboard.'}</div>
+                <div className="mt-2 text-sm leading-6 text-[#64748b]">{browserIsZh ? 'TokCard 会先展示你的 Token 强度，再顺手把流量带去你的项目。' : 'TokCard leads with your token signal, then turns that attention into project traffic.'}</div>
+              </div>
+              <a
+                href="/create"
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#0071e3] px-6 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(0,113,227,0.22)]"
+              >
+                {browserIsZh ? '立即生成我的卡片' : 'Create my card'}
+              </a>
+            </div>
           </div>
-        </div>
+        </>
       )}
+    </div>
+  );
+}
+
+function StatPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#dbe4ff] bg-white/90 px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-[#0f172a]">{value}</div>
     </div>
   );
 }
@@ -488,16 +572,23 @@ function LeaderboardRow({
   const projectName = entry.primaryProjectName || entry.topProject?.name || (isZh ? '未命名项目' : 'Untitled project');
   const projectUrl = entry.primaryProjectUrl || entry.topProject?.url || '';
   const projectPitch = entry.primaryProjectPitch || (isZh ? '这位开发者正在用 AI 推进一个项目。' : 'This builder is shipping with AI.');
+  const tokenDisplay = formatTokens(entry.totalTokens, isZh ? 'zh' : 'en');
+  const tokenFullDisplay = entry.totalTokens.toLocaleString(isZh ? 'zh-CN' : 'en-US');
+  const dateLabel = new Date(entry.createdAt).toLocaleDateString(isZh ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+  const channelLabel = getChannelLabel(entry.channel, isZh);
 
   return (
     <div
       data-rank-id={entry.id}
-      className={`rounded-[24px] border p-4 transition-all ${
+      className={`rounded-[26px] border p-4 transition-all md:p-5 ${
         highlight
-          ? 'border-[#0071e3] bg-[#f8fbff] shadow-[0_16px_40px_rgba(0,113,227,0.16)]'
+          ? 'border-[#0071e3] bg-[#f8fbff] shadow-[0_18px_42px_rgba(0,113,227,0.16)]'
           : isTop3
-            ? 'bg-white border-[#dbe4ff] shadow-[0_8px_24px_rgba(0,113,227,0.08)]'
-            : 'bg-white/70 border-transparent hover:border-[#dbe4ff] hover:bg-white'
+            ? 'border-[#dbe4ff] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.06)]'
+            : 'border-[#e8eefc] bg-white hover:border-[#dbe4ff]'
       }`}
     >
       {highlight && (
@@ -505,92 +596,106 @@ function LeaderboardRow({
           {isZh ? '聚焦查看' : 'Focused entry'}
         </div>
       )}
-      <div className="flex items-start gap-3">
-        <div className={`w-11 text-center font-bold shrink-0 ${rank === 1 ? 'text-2xl' : rank <= 3 ? 'text-xl' : 'text-sm text-[#94a3b8]'}`}>
-          {getRankMedal(rank)}
-        </div>
 
-        <div className="w-11 h-11 rounded-full bg-[#f1f5f9] flex items-center justify-center text-xl shrink-0 overflow-hidden">
-          {entry.avatarType === 'emoji' ? entry.avatarValue : '🤖'}
-        </div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-3">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-sm font-bold ${
+              isTop3
+                ? 'border-[#dbe4ff] bg-[#f8fbff] text-[#0f172a]'
+                : 'border-[#e2e8f0] bg-white text-[#64748b]'
+            }`}>
+              {getRankMedal(rank)}
+            </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-sm md:text-base truncate">{entry.username || 'Anonymous'}</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-2.5 py-1 text-[11px] font-medium text-[#475569]">
-              <span>{CHANNEL_ICONS[entry.channel] ?? '⚪'}</span>
-              <span>{entry.channel}</span>
-            </span>
-            {entry.topModel && (
-              <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-2.5 py-1 text-[11px] font-medium text-[#334155]">
-                {entry.topModel}
-              </span>
-            )}
-            {entry.region && (
-              <a
-                href={buildRankHref({ region: entry.region })}
-                className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-2.5 py-1 text-[11px] font-medium text-[#475569] hover:border-[#0071e3]"
-              >
-                <span>{getRegionFlag(entry.region)}</span>
-                <span>{getRegionLabel(entry.region, isZh)}</span>
-              </a>
-            )}
-            {entry.company && (
-              <a
-                href={buildRankHref({ company: entry.company })}
-                className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-2.5 py-1 text-[11px] font-medium text-[#334155] max-w-full truncate hover:border-[#0071e3]"
-              >
-                {entry.company}
-              </a>
-            )}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f1f5f9] text-xl">
+              {entry.avatarType === 'emoji' ? entry.avatarValue : '🤖'}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="truncate text-base font-semibold text-[#0f172a]">{entry.username || 'Anonymous'}</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-2.5 py-1 text-[11px] font-medium text-[#475569]">
+                  <span>{CHANNEL_ICONS[entry.channel] ?? '⚪'}</span>
+                  <span>{channelLabel}</span>
+                </span>
+                {entry.region && (
+                  <a
+                    href={buildRankHref({ region: entry.region })}
+                    className="inline-flex items-center gap-1 rounded-full border border-[#dbe4ff] bg-white px-2.5 py-1 text-[11px] font-medium text-[#475569] hover:border-[#0071e3]"
+                  >
+                    <span>{getRegionFlag(entry.region)}</span>
+                    <span>{getRegionLabel(entry.region, isZh)}</span>
+                  </a>
+                )}
+                {entry.company && (
+                  <a
+                    href={buildRankHref({ company: entry.company })}
+                    className="inline-flex max-w-full items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-2.5 py-1 text-[11px] font-medium text-[#334155] hover:border-[#0071e3]"
+                  >
+                    <span className="truncate">{entry.company}</span>
+                  </a>
+                )}
+                {entry.topModel && (
+                  <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-2.5 py-1 text-[11px] font-medium text-[#475569]">
+                    {entry.topModel}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#94a3b8]">
+                {entry.projectCount > 0 && <span>{entry.projectCount} {isZh ? '个项目' : 'projects'}</span>}
+                <span>· {dateLabel}</span>
+                <span>· {isZh ? `等级 ${tier.label}` : `Tier ${tier.labelEn}`}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#94a3b8]">
-            {entry.projectCount > 0 && <span>{entry.projectCount} {isZh ? '个项目' : 'projects'}</span>}
-            <span>· {new Date(entry.createdAt).toLocaleDateString(isZh ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}</span>
+          <div className="mt-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-lg font-semibold tracking-tight text-[#0f172a]">{projectName}</div>
+                <div className="mt-2 line-clamp-2 text-sm leading-6 text-[#64748b]">{projectPitch}</div>
+              </div>
+              {projectUrl && (
+                <a
+                  href={projectUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-3 py-1.5 text-xs font-medium text-[#334155] hover:border-[#0071e3]"
+                >
+                  <span>{entry.topProject?.icon || '🚀'}</span>
+                  <span>{isZh ? '打开项目' : 'Open project'}</span>
+                </a>
+              )}
+            </div>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3">
-            <div className="text-lg font-semibold tracking-tight text-[#0f172a]">{projectName}</div>
-            <div className="mt-1 text-sm leading-6 text-[#64748b]">{projectPitch}</div>
-            {projectUrl && (
-              <a
-                href={projectUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-3 py-1.5 text-xs font-medium text-[#334155] hover:border-[#0071e3] hover:bg-white"
-              >
-                <span>{entry.topProject?.icon || '🚀'}</span>
-                <span className="truncate">{isZh ? '打开项目' : 'Open project'}</span>
-              </a>
-            )}
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <a
               href={`/u/${entry.id}`}
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#0071e3] px-4 text-sm font-semibold text-white"
             >
               {isZh ? '查看卡片' : 'View card'}
             </a>
-            {projectUrl && (
-              <a
-                href={projectUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569]"
-              >
-                {isZh ? '项目主页' : 'Project page'}
-              </a>
-            )}
+            <a
+              href={`/rank?focus=${entry.id}`}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569]"
+            >
+              {isZh ? '聚焦位置' : 'Focus rank'}
+            </a>
           </div>
         </div>
 
-        <div className="text-right shrink-0">
-          <div className="font-bold text-sm md:text-base">{formatTokens(entry.totalTokens)}</div>
-          <div className="flex items-center justify-end gap-1 mt-1">
-            <span className="text-xs">{tier.badge}</span>
-            <span className="text-xs font-medium" style={{ color: tier.accent }}>{isZh ? tier.label : tier.labelEn}</span>
+        <div className="shrink-0 lg:w-[210px]">
+          <div className="rounded-[22px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-4 lg:text-right">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? 'Token 用量' : 'Token volume'}</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-[#0f172a]">{tokenDisplay}</div>
+            <div className="mt-1 text-xs text-[#94a3b8]">{tokenFullDisplay}</div>
+            <div className="mt-3 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold lg:ml-auto" style={{ color: tier.accent, borderColor: `${tier.accent}33`, backgroundColor: `${tier.accent}12` }}>
+              <span>{tier.badge}</span>
+              <span>{isZh ? tier.label : tier.labelEn}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -600,11 +705,11 @@ function LeaderboardRow({
 
 function LoadingSkeleton() {
   return (
-    <div className="max-w-4xl mx-auto w-full px-4 pt-10">
-      <div className="h-10 w-48 mx-auto rounded-xl bg-[#f1f5f9] animate-pulse mb-6" />
-      <div className="space-y-3">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-24 rounded-2xl bg-[#f1f5f9] animate-pulse" />
+    <div className="mx-auto w-full max-w-5xl px-4 pt-8">
+      <div className="h-44 rounded-[32px] bg-[#f1f5f9] animate-pulse" />
+      <div className="mt-5 space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-40 rounded-[26px] bg-[#f1f5f9] animate-pulse" />
         ))}
       </div>
     </div>
@@ -615,10 +720,10 @@ function EmptyState() {
   const isZh = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language);
   return (
     <div className="rounded-[28px] border border-[#dbe4ff] bg-white px-6 py-10 text-center text-[#94a3b8]">
-      <div className="text-4xl mb-3">🏜️</div>
+      <div className="mb-3 text-4xl">🏜️</div>
       <p className="text-lg font-medium text-[#1d1d1f]">{isZh ? '当前筛选下还没有用户上榜' : 'No builders match these filters yet'}</p>
       <p className="mt-2 text-sm leading-6">{isZh ? '这不只是一个榜单，也是大家顺手发现彼此项目的地方。你可以成为这块区域里第一个被看见的人。' : 'This board is also a place to discover what other builders are shipping. You can be the first visible entry here.'}</p>
-      <div className="mt-6 grid gap-3 sm:grid-cols-3 text-left">
+      <div className="mt-6 grid gap-3 text-left sm:grid-cols-3">
         <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">1</div>
           <div className="mt-2 text-sm font-semibold text-[#1d1d1f]">{isZh ? '先展示 Token' : 'Lead with tokens'}</div>
@@ -635,7 +740,7 @@ function EmptyState() {
           <div className="mt-1 text-xs leading-5 text-[#64748b]">{isZh ? '冷启动时反而更容易被看见。' : 'Early entries stand out more during cold start.'}</div>
         </div>
       </div>
-      <a href="/create" className="mt-6 inline-flex min-h-11 items-center gap-2 px-6 py-3 rounded-full bg-[#0071e3] text-white font-semibold text-sm">
+      <a href="/create" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0071e3] px-6 py-3 text-sm font-semibold text-white">
         {isZh ? '立即生成卡片' : 'Create my card'}
       </a>
     </div>
@@ -645,14 +750,14 @@ function EmptyState() {
 function ErrorState({ message }: { message: string }) {
   const isZh = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language);
   return (
-    <div className="max-w-4xl mx-auto w-full px-4 pt-16 text-center text-[#94a3b8]">
-      <div className="text-4xl mb-3">😵</div>
+    <div className="mx-auto w-full max-w-4xl px-4 pt-16 text-center text-[#94a3b8]">
+      <div className="mb-3 text-4xl">😵</div>
       <p className="text-lg font-medium">{isZh ? '排行榜加载失败' : 'Failed to load leaderboard'}</p>
       <p className="mt-1 text-sm">{message}</p>
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="mt-4 px-6 py-2 rounded-full border border-[#dbe4ff] text-sm font-medium hover:bg-[#f8fbff]"
+        className="mt-4 rounded-full border border-[#dbe4ff] px-6 py-2 text-sm font-medium hover:bg-[#f8fbff]"
       >
         {isZh ? '重新加载' : 'Reload'}
       </button>

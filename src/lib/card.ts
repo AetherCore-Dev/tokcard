@@ -177,29 +177,29 @@ export const TRUST_TIER_META: Record<TrustTier, {
   'self-reported': {
     label: 'Self reported',
     labelZh: '用户填写',
-    description: 'Share-first mode. Great for posting, but not used for official rankings.',
-    descriptionZh: '适合先发出来，先传播；默认不进入正式排名。',
+    description: 'Ready to share now. It shows a tier signal first, and you can enter official rankings after adding a screenshot or importing usage records.',
+    descriptionZh: '适合先发先传播。当前先展示档位信号；补 usage 截图或导入 usage 记录后，就能进入正式排名。',
     accent: '#64748b',
   },
   'screenshot-backed': {
     label: 'Proof attached',
     labelZh: '截图佐证',
-    description: 'Backed by a screenshot from a usage dashboard or billing page.',
-    descriptionZh: '已附 usage 或账单截图，可信度更高。',
+    description: 'Backed by a usage or billing screenshot. It can enter percentile-style comparison now, and imported usage unlocks clearer ranking positions.',
+    descriptionZh: '已附 usage 或账单截图。现在可以进入区间比较 / 百分位展示；继续导入 usage 记录后，能获得更明确的排名位置。',
     accent: '#0ea5e9',
   },
   'usage-imported': {
     label: 'Usage imported',
     labelZh: '数据导入',
-    description: 'Imported from usage text or dashboard summaries and ready for stronger ranking signals.',
-    descriptionZh: '已导入 usage 文本或摘要，可解锁更强的排名展示。',
+    description: 'Imported from usage text or dashboard summaries. This state is eligible for official rankings and focused leaderboard views.',
+    descriptionZh: '已导入 usage 文本或摘要，可进入正式排名，并支持排行榜聚焦查看。',
     accent: '#f59e0b',
   },
   'strong-authenticated': {
     label: 'Verified source',
     labelZh: '官方验证',
-    description: 'Reserved for future direct source integrations.',
-    descriptionZh: '预留给未来更强的官方数据接入。',
+    description: 'Reserved for future direct source integrations with the strongest ranking presentation.',
+    descriptionZh: '预留给未来更强的官方数据接入，可获得最高等级的排名展示。',
     accent: '#8b5cf6',
   },
 };
@@ -278,19 +278,19 @@ export function getRankingSignalLabel(rankTier: RankTierInfo, trustTier: TrustTi
 export function getRankingSignalDescription(rankTier: RankTierInfo, trustTier: TrustTier, locale: 'zh' | 'en'): string {
   if (trustTier === 'self-reported') {
     return locale === 'zh'
-      ? `当前只展示 ${rankTier.label} 档位，不作为正式排名。`
-      : `Currently shown as a ${rankTier.labelEn} tier signal only, not a formal ranking.`;
+      ? `当前只展示 ${rankTier.label} 档位。想进入正式排名，请补 usage 截图或导入 usage 记录。`
+      : `Currently shown as a ${rankTier.labelEn} tier signal. Add a screenshot or import usage records to enter official rankings.`;
   }
 
   if (trustTier === 'screenshot-backed') {
     return locale === 'zh'
-      ? `基于截图佐证，可用于 ${rankTier.topPercentLabel} 的区间比较。`
-      : `Screenshot-backed and suitable for ${rankTier.topPercentLabelEn} range-style comparison.`;
+      ? `基于截图佐证，已可用于 ${rankTier.topPercentLabel} 的区间比较；继续导入 usage 记录后，可获得更明确的排名位置。`
+      : `Screenshot-backed and eligible for ${rankTier.topPercentLabelEn} range-style comparison. Import usage records next for clearer ranking positions.`;
   }
 
   return locale === 'zh'
-    ? `已具备更强的排名展示资格，可落在 ${rankTier.topPercentLabel} 区间。`
-    : `Ready for stronger ranking views and eligible for the ${rankTier.topPercentLabelEn} bracket.`;
+    ? `当前已具备正式排名资格，可进入 ${rankTier.topPercentLabel} 区间并被排行榜聚焦查看。`
+    : `This state is eligible for official rankings and can appear in the ${rankTier.topPercentLabelEn} bracket with focused leaderboard views.`;
 }
 
 export function formatProofDateRange(range: ProofDateRange | undefined, locale: 'zh' | 'en'): string {
@@ -375,22 +375,88 @@ export const DEFAULT_CARD_DATA: CardData = {
   trustTier: 'self-reported',
 };
 
-// Format token number with commas
-export function formatTokens(tokens: number): string {
-  if (tokens >= 1_000_000_000) {
-    return `${(tokens / 1_000_000_000).toFixed(1)}B`;
-  }
-  if (tokens >= 1_000_000) {
-    return `${(tokens / 1_000_000).toFixed(1)}M`;
-  }
-  if (tokens >= 1_000) {
-    return `${(tokens / 1_000).toFixed(1)}K`;
-  }
-  return tokens.toLocaleString();
+function stripTrailingZero(value: string): string {
+  return value.replace(/\.0$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
 }
 
-export function formatTokensFull(tokens: number): string {
-  return tokens.toLocaleString();
+function formatCompactValue(value: number): string {
+  if (value >= 100) return Math.round(value).toString();
+  if (value >= 10) return stripTrailingZero(value.toFixed(1));
+  return stripTrailingZero(value.toFixed(1));
+}
+
+export function formatTokens(tokens: number, locale: 'zh' | 'en' = 'en'): string {
+  if (locale === 'zh') {
+    if (tokens >= 100_000_000) {
+      return `${formatCompactValue(tokens / 100_000_000)}亿`;
+    }
+    if (tokens >= 10_000) {
+      return `${formatCompactValue(tokens / 10_000)}万`;
+    }
+    return tokens.toLocaleString('zh-CN');
+  }
+
+  if (tokens >= 1_000_000_000) {
+    return `${formatCompactValue(tokens / 1_000_000_000)}B`;
+  }
+  if (tokens >= 1_000_000) {
+    return `${formatCompactValue(tokens / 1_000_000)}M`;
+  }
+  if (tokens >= 1_000) {
+    return `${formatCompactValue(tokens / 1_000)}K`;
+  }
+  return tokens.toLocaleString('en-US');
+}
+
+export function formatTokensFull(tokens: number, locale: 'zh' | 'en' = 'en'): string {
+  return tokens.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US');
+}
+
+const TOKEN_COST_PER_MILLION_USD = 4;
+const USD_TO_CNY = 7.2;
+
+export function estimateTokenValueUSD(tokens: number): number {
+  return (tokens / 1_000_000) * TOKEN_COST_PER_MILLION_USD;
+}
+
+export function estimateTokenValueCNY(tokens: number): number {
+  return estimateTokenValueUSD(tokens) * USD_TO_CNY;
+}
+
+function formatCurrencyCompact(amount: number, currency: 'USD' | 'CNY', locale: 'zh' | 'en'): string {
+  const prefix = currency === 'USD' ? '$' : locale === 'zh' ? '¥' : 'CN¥';
+
+  if (locale === 'zh' && currency === 'CNY') {
+    if (amount >= 100_000_000) {
+      return `${prefix}${formatCompactValue(amount / 100_000_000)}亿`;
+    }
+    if (amount >= 10_000) {
+      return `${prefix}${formatCompactValue(amount / 10_000)}万`;
+    }
+    return `${prefix}${amount.toLocaleString('zh-CN', { maximumFractionDigits: amount >= 100 ? 0 : 1 })}`;
+  }
+
+  if (amount >= 1_000_000_000) {
+    return `${prefix}${formatCompactValue(amount / 1_000_000_000)}B`;
+  }
+  if (amount >= 1_000_000) {
+    return `${prefix}${formatCompactValue(amount / 1_000_000)}M`;
+  }
+  if (amount >= 1_000) {
+    return `${prefix}${formatCompactValue(amount / 1_000)}K`;
+  }
+  if (amount >= 100) {
+    return `${prefix}${Math.round(amount).toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US')}`;
+  }
+  return `${prefix}${stripTrailingZero(amount.toFixed(amount >= 10 ? 1 : 2))}`;
+}
+
+export function formatTokenValueEstimate(tokens: number, locale: 'zh' | 'en' = 'en'): string {
+  if (tokens <= 0) return locale === 'zh' ? '≈ $0 / ¥0' : '≈ $0 / CN¥0';
+
+  const usd = estimateTokenValueUSD(tokens);
+  const cny = estimateTokenValueCNY(tokens);
+  return `${formatCurrencyCompact(usd, 'USD', locale)} / ${formatCurrencyCompact(cny, 'CNY', locale)}`;
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {

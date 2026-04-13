@@ -3,6 +3,7 @@ import * as QRCode from 'qrcode';
 import type { CardData } from '@/lib/card';
 import {
   formatProofDateRange,
+  formatTokenValueEstimate,
   formatTokens,
   formatTokensFull,
   getProofSourceLabel,
@@ -302,8 +303,10 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
     }
   })();
 
-  const tokenDisplay = data.totalTokens > 0 ? formatTokensFull(data.totalTokens) : '0';
-  const tokenShort = data.totalTokens > 0 ? formatTokens(data.totalTokens) : '0';
+  const tokenDisplay = data.totalTokens > 0 ? formatTokens(data.totalTokens, data.locale) : '0';
+  const tokenShort = data.totalTokens > 0 ? formatTokens(data.totalTokens, data.locale) : '0';
+  const tokenFullDisplay = data.totalTokens > 0 ? formatTokensFull(data.totalTokens, data.locale) : '0';
+  const tokenValueEstimate = data.totalTokens > 0 ? formatTokenValueEstimate(data.totalTokens, data.locale) : (isZh ? '≈ $0 / ¥0' : '≈ $0 / CN¥0');
   const trustTierLabel = getTrustTierLabel(data.trustTier, data.locale);
   const proofSourceLabel = data.proofSource ? getProofSourceLabel(data.proofSource, data.locale) : '';
   const proofRangeLabel = formatProofDateRange(data.proofDateRange, data.locale);
@@ -608,6 +611,12 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 </div>
                 <div style={{ marginTop: 6 * s, fontSize: 12 * s, color: tc.textDim, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                   TOKENS
+                </div>
+                <div style={{ marginTop: 8 * s, fontSize: 11 * s, color: tc.textSecondary, lineHeight: 1.6 }}>
+                  {tokenValueEstimate}
+                </div>
+                <div style={{ marginTop: 4 * s, fontSize: 10 * s, color: tc.textMuted, lineHeight: 1.5 }}>
+                  {isZh ? `完整值 ${tokenFullDisplay}` : `${tokenFullDisplay} total`}
                 </div>
               </div>
               <div

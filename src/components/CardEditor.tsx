@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { parseAIOptions } from '@/lib/deepseek';
-import type { CardData, FeaturedProject, ModelBreakdown, ProofSource } from '@/lib/card';
+import type { CardData, FeaturedProject, ProofSource } from '@/lib/card';
 import {
   buildSharedCardUrl,
   canParticipateInRanking,
@@ -9,6 +9,9 @@ import {
   DEFAULT_CARD_DATA,
   FEATURED_PROJECT_LIMIT,
   formatProofDateRange,
+  formatTokenValueEstimate,
+  formatTokens,
+  formatTokensFull,
   getPrimaryProjectUrl,
   getProofSourceLabel,
   getRankingSignalDescription,
@@ -16,7 +19,6 @@ import {
   getTrustTierAccent,
   getTrustTierDescription,
   getTrustTierLabel,
-  getMaxRankingDisplay,
   normalizeFeaturedProjects,
   normalizeTheme,
   parseTokenValue,
@@ -24,10 +26,8 @@ import {
   PROOF_SOURCE_META,
   sanitizeReferralCode,
 } from '@/lib/card';
-import { getGrowthPercentage } from '@/lib/achievements';
-import { FEATURED_REGIONS } from '@/lib/leaderboard';
-import { getMetaphor, METAPHOR_CATEGORY_LABELS, type MetaphorCategory } from '@/lib/metaphor';
-import { CARD_PRESETS } from '@/lib/presets';
+import { getMetaphor } from '@/lib/metaphor';
+import { CARD_PRESETS, type CardPreset } from '@/lib/presets';
 import { shareWithFallback } from '@/lib/share';
 import { saveCardAndGetShortUrl } from '@/lib/card-storage';
 import { getRankTier } from '@/lib/titles';
@@ -35,57 +35,40 @@ import CardRenderer from './CardRenderer';
 import SuccessAnimation from './SuccessAnimation';
 import { domToBlob } from 'modern-screenshot';
 
-const SLOGAN_CATEGORY_LABELS = {
-  flex: { zh: '炫耀', en: 'Flex' },
-  selfMock: { zh: '自黑', en: 'Self Roast' },
-  hype: { zh: '爆款', en: 'Viral' },
-  geek: { zh: '极客', en: 'Geek' },
-} as const;
-
-const PRESET_SLOGANS_BY_CATEGORY = {
-  flex: [
-    '我跟 AI 说的话比跟人多',
-    '一不小心又烧了 10 亿 token',
-    '我写的不是代码，是算力排面',
-    'AI 是同事，效率是副产品',
-    'Prompt 写得好，像开外挂',
-  ],
-  selfMock: [
-    '代码是 AI 写的，bug 是我的',
-    '我不是在写代码，我是在养 AI',
-    '需求没变，是我又问了一次 AI',
-    '人类拍板，模型干活',
-    '我会的不是技术，是使唤 AI',
-  ],
-  hype: [
-    '这月 token，够我吹到下个月',
-    'AI 工位战神申请出战',
-    '今天的我，像开了十个分身',
-    '发出来不是总结，是压迫感',
-    '别人晒腹肌，我晒 token',
-  ],
-  geek: [
-    'Build with AI, ship like a factory',
-    'Vibe coding all day, every day',
-    'AI is my copilot, and I drive fast',
-    'Shipping faster than ever',
-    'I talk to AI more than humans',
-  ],
-} as const;
-
 const PRESET_EMOJIS = ['🤖', '👨‍💻', '👩‍💻', '🚀', '⚡', '🧠', '🔥', '💻', '🎮', '🦾', '🌟', '🕹️'];
 
-const SLOGAN_MODE_LABELS = {
-  personal: { zh: '个人名片', en: 'Personal' },
-  project: { zh: '项目名片', en: 'Project' },
-  social: { zh: '社交标题', en: 'Social' },
-} as const;
-
 const CURATED_THEME_OPTIONS = [
-  { value: 'brand-dark', labelZh: '午夜蓝', labelEn: 'Midnight', preview: 'bg-[#0f172a] border-[#334155]' },
-  { value: 'brand-light', labelZh: '纯白极简', labelEn: 'Pure White', preview: 'bg-[#fbfbfd] border-[#d2d2d7]' },
-  { value: 'minimal-gray', labelZh: '柔雾专业', labelEn: 'Soft Minimal', preview: 'bg-[#f3f4f6] border-[#cbd5e1]' },
+  { value: 'brand-dark', labelZh: '深夜信号', labelEn: 'Midnight Signal', preview: 'bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_55%,#8b5cf6_100%)] border-[#334155]' },
+  { value: 'brand-light', labelZh: '柔光渐层', labelEn: 'Soft Glow', preview: 'bg-[linear-gradient(135deg,#fff7ed_0%,#fdf2f8_55%,#eff6ff_100%)] border-[#fbcfe8]' },
+  { value: 'minimal-gray', labelZh: '雾面专业', labelEn: 'Mist Minimal', preview: 'bg-[linear-gradient(135deg,#f8fafc_0%,#eef2ff_45%,#e2e8f0_100%)] border-[#cbd5e1]' },
 ] as const;
+
+const PLATFORM_TEMPLATE_NOTES: Record<CardData['platform'], { zh: string; en: string }> = {
+  wechat: {
+    zh: '适合微信 / 朋友圈，语气更稳，更像可信介绍。',
+    en: 'For WeChat and Moments with a calmer, trust-first tone.',
+  },
+  twitter: {
+    zh: '适合发 X / Twitter，强调速度、发布感和观点。',
+    en: 'For X with sharper launch energy and stronger opinions.',
+  },
+  instagram: {
+    zh: '适合竖版视觉表达。',
+    en: 'Best for vertical visual storytelling.',
+  },
+  weibo: {
+    zh: '适合微博转发和热点传播，信息要更抓眼。',
+    en: 'For repost energy and hotter visibility on Weibo.',
+  },
+  xiaohongshu: {
+    zh: '适合小红书，强调颜值、项目感和分享欲。',
+    en: 'For Xiaohongshu with a softer, polished visual vibe.',
+  },
+  linkedin: {
+    zh: '适合 LinkedIn / 主页，强调专业和可信。',
+    en: 'For LinkedIn and portfolio sharing with a more credible feel.',
+  },
+};
 
 interface AICaptionOption {
   title: string;
@@ -292,16 +275,10 @@ export default function CardEditor() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [aiSlogans, setAiSlogans] = useState<string[]>([]);
-  const [aiMetaphors, setAiMetaphors] = useState<string[]>([]);
   const [aiCaptions, setAiCaptions] = useState<AICaptionOption[]>([]);
   const [aiPitches, setAiPitches] = useState<string[]>([]);
-  const [isGeneratingSlogan, setIsGeneratingSlogan] = useState(false);
-  const [isGeneratingMetaphor, setIsGeneratingMetaphor] = useState(false);
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
   const [isGeneratingPitch, setIsGeneratingPitch] = useState(false);
-  const [sloganCategory, setSloganCategory] = useState<keyof typeof PRESET_SLOGANS_BY_CATEGORY>('hype');
-  const [sloganMode, setSloganMode] = useState<keyof typeof SLOGAN_MODE_LABELS>('social');
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareCaption, setShareCaption] = useState('');
   const [shareLink, setShareLink] = useState('');
@@ -393,7 +370,7 @@ export default function CardEditor() {
           };
           setData(prev => ({ ...prev, ...normalizedDraft }));
           if (parsed.totalTokens) {
-            setTokenInput(String(parsed.totalTokens));
+            setTokenInput(formatTokensFull(parsed.totalTokens, parsed.locale === 'en' ? 'en' : 'zh'));
           }
         }
       } catch { /* ignore */ }
@@ -421,7 +398,6 @@ export default function CardEditor() {
     [data.customMetaphor, data.totalTokens, data.metaphorCategory, data.locale]
   );
   const rankTier = useMemo(() => getRankTier(data.totalTokens), [data.totalTokens]);
-  const growth = useMemo(() => getGrowthPercentage(data.totalTokens, data.lastMonthTokens), [data.totalTokens, data.lastMonthTokens]);
   const normalizedProjects = useMemo(() => normalizeFeaturedProjects(data.projects), [data.projects]);
   const primaryProjectUrl = useMemo(() => getPrimaryProjectUrl(data), [data]);
   const previewCardData = useMemo(() => {
@@ -439,6 +415,19 @@ export default function CardEditor() {
     };
   }, [data, siteOrigin]);
   const exportCardData = exportCardSnapshot ?? previewCardData;
+  const tokenCompactDisplay = useMemo(() => (data.totalTokens > 0 ? formatTokens(data.totalTokens, data.locale) : '0'), [data.locale, data.totalTokens]);
+  const tokenFullDisplay = useMemo(() => (data.totalTokens > 0 ? formatTokensFull(data.totalTokens, data.locale) : '0'), [data.locale, data.totalTokens]);
+  const tokenValueEstimate = useMemo(() => formatTokenValueEstimate(data.totalTokens, data.locale), [data.locale, data.totalTokens]);
+  const presetGroups = useMemo(() => (
+    (['twitter', 'linkedin', 'wechat', 'weibo', 'xiaohongshu'] as CardData['platform'][])
+      .map((platform) => ({
+        platform,
+        label: isZh ? PLATFORMS[platform].labelZh : PLATFORMS[platform].label,
+        note: isZh ? PLATFORM_TEMPLATE_NOTES[platform].zh : PLATFORM_TEMPLATE_NOTES[platform].en,
+        presets: CARD_PRESETS.filter((preset) => preset.platform === platform),
+      }))
+      .filter((group) => group.presets.length > 0)
+  ), [isZh]);
   const readinessItems = useMemo(() => ([
     {
       id: 'tokens',
@@ -473,7 +462,6 @@ export default function CardEditor() {
     data.proofSource ? getProofSourceLabel(data.proofSource, data.locale) : ''
   ), [data.locale, data.proofSource]);
   const proofRangeLabel = useMemo(() => formatProofDateRange(data.proofDateRange, data.locale), [data.locale, data.proofDateRange]);
-  const rankingDisplay = useMemo(() => getMaxRankingDisplay(data.trustTier), [data.trustTier]);
   const fieldErrors = useMemo(() => ({
     tokens: data.totalTokens <= 0,
     primaryProjectName: !data.primaryProjectName.trim(),
@@ -501,6 +489,35 @@ export default function CardEditor() {
     rankingSignalDescription,
     trustTier: data.trustTier,
   }), [data.trustTier, isZh, proofRangeLabel, proofSourceLabel, rankingSignalDescription, rankingSignalLabel, trustTierLabel]);
+  const rankingAccessGuide = useMemo(() => {
+    if (data.trustTier === 'self-reported') {
+      return {
+        title: isZh ? '当前还没进入正式排名' : 'Not in official rankings yet',
+        description: isZh
+          ? '现在先展示档位和项目，适合先传播。想进入正式排名，请上传 usage 截图或导入 usage 记录。'
+          : 'The card currently leads with tier and project only. Add a usage screenshot or import usage records to enter official rankings.',
+        nextStep: isZh ? '下一步：补 usage 截图，或直接导入 usage 文本。' : 'Next step: add a usage screenshot or import usage records.',
+      };
+    }
+
+    if (data.trustTier === 'screenshot-backed') {
+      return {
+        title: isZh ? '已进入区间比较 / 百分位展示' : 'Eligible for percentile-style comparison',
+        description: isZh
+          ? '截图佐证后，这张卡已经具备基础的榜单比较资格。继续导入 usage 记录后，可获得更明确的排名位置。'
+          : 'With screenshot proof attached, this card is eligible for range-style leaderboard comparison. Import usage records next for clearer rank placement.',
+        nextStep: isZh ? '下一步：导入 usage 记录，解锁更明确的排名位置。' : 'Next step: import usage records for clearer ranking positions.',
+      };
+    }
+
+    return {
+      title: isZh ? '已具备正式排名资格' : 'Eligible for official rankings',
+      description: isZh
+        ? '当前状态已经可以进入正式排名，并支持排行榜聚焦查看。'
+        : 'This state is already eligible for official rankings and focused leaderboard views.',
+      nextStep: isZh ? '当前状态已经够用，后续只需要继续更新 token 和项目。' : 'You are already ranking. Keep the token number and project info fresh.',
+    };
+  }, [data.trustTier, isZh]);
   const sortedAiCaptions = useMemo(() => sortCaptionOptionsForTrust(aiCaptions, data.trustTier), [aiCaptions, data.trustTier]);
 
   useEffect(() => {
@@ -588,8 +605,8 @@ export default function CardEditor() {
       proofDateRange: prev.proofDateRange,
       importedAt: prev.importedAt,
     }));
-    setAiSlogans([]);
-    setAiMetaphors([]);
+    setAiCaptions([]);
+    setShareCaption('');
   }, []);
 
   const updateProject = useCallback((index: number, field: keyof FeaturedProject, value: string) => {
@@ -656,41 +673,6 @@ export default function CardEditor() {
     [data.projects]
   );
 
-  const handleGenerateSlogan = useCallback(async () => {
-    setIsGeneratingSlogan(true);
-    setAiSlogans([]);
-    try {
-      const response = await fetch('/api/generate-slogan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: data.username || data.primaryProjectName || 'builder',
-          tokens: data.totalTokens,
-          locale: data.locale,
-          style: sloganCategory,
-          titleMode: sloganMode,
-          primaryProjectName: data.primaryProjectName,
-          primaryProjectPitch: data.primaryProjectPitch,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('API error:', response.status);
-        alert(isZh ? '生成失败，请重试' : 'Generation failed, please try again');
-        setIsGeneratingSlogan(false);
-        return;
-      }
-
-      const result = await response.json() as { content?: string };
-      setAiSlogans(parseAIOptions(result.content ?? '').slice(0, 3));
-    } catch (err) {
-      console.error('AI slogan generation failed:', err);
-      alert(isZh ? '生成失败，请检查网络' : 'Generation failed, check network');
-    } finally {
-      setIsGeneratingSlogan(false);
-    }
-  }, [data.username, data.primaryProjectName, data.primaryProjectPitch, data.totalTokens, data.locale, isZh, sloganCategory, sloganMode]);
-
   const handleGenerateCaptions = useCallback(async () => {
     setIsGeneratingCaptions(true);
     setAiCaptions([]);
@@ -753,41 +735,6 @@ export default function CardEditor() {
     trustTierLabel,
   ]);
 
-  const handleGenerateMetaphor = useCallback(async () => {
-    setIsGeneratingMetaphor(true);
-    setAiMetaphors([]);
-    try {
-      const tokensToUse = data.totalTokens > 0 ? data.totalTokens : 10000;
-      const response = await fetch('/api/generate-metaphor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tokens: tokensToUse,
-          locale: data.locale,
-          category: data.metaphorCategory,
-          primaryProjectName: data.primaryProjectName,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('API error:', response.status);
-        alert(isZh ? '生成失败，请重试' : 'Generation failed, please try again');
-        setIsGeneratingMetaphor(false);
-        return;
-      }
-
-      const result = await response.json() as { content?: string };
-      const options = parseAIOptions(result.content ?? '').slice(0, 3);
-      setAiMetaphors(options);
-      updateField('customMetaphor', options[0] ?? '');
-    } catch (err) {
-      console.error('AI metaphor generation failed:', err);
-      alert(isZh ? '生成失败，请检查网络' : 'Generation failed, check network');
-    } finally {
-      setIsGeneratingMetaphor(false);
-    }
-  }, [data.totalTokens, data.primaryProjectName, data.locale, isZh, updateField]);
-
   const handleGeneratePitch = useCallback(async () => {
     setIsGeneratingPitch(true);
     setAiPitches([]);
@@ -821,23 +768,6 @@ export default function CardEditor() {
     setTokenInput(raw);
     updateField('totalTokens', parseTokenValue(raw));
   }, [updateField]);
-
-  const handleModelBreakdown = useCallback((index: number, field: keyof ModelBreakdown, value: string | number) => {
-    setData(prev => {
-      const breakdown = [...prev.modelBreakdown];
-      let newValue = value;
-
-      // Clamp percentage to prevent exceeding 100 total
-      if (field === 'percentage' && typeof newValue === 'number') {
-        const othersTotal = breakdown.reduce((sum, m, i) => (i === index ? sum : sum + m.percentage), 0);
-        const maxAllowed = 100 - othersTotal;
-        newValue = Math.max(0, Math.min(newValue, maxAllowed));
-      }
-
-      breakdown[index] = { ...breakdown[index], [field]: newValue };
-      return { ...prev, modelBreakdown: breakdown };
-    });
-  }, []);
 
   const handleAvatarTypeChange = useCallback((type: CardData['avatarType']) => {
     setData(prev => {
@@ -874,15 +804,6 @@ export default function CardEditor() {
         avatarValue: `https://api.dicebear.com/9.x/adventurer/svg?seed=${prev.username || 'tokcard'}`,
       };
     });
-  }, []);
-
-  const handleMetaphorCategoryChange = useCallback((category: MetaphorCategory) => {
-    setData(prev => ({
-      ...prev,
-      metaphorCategory: category,
-      customMetaphor: '',
-    }));
-    setAiMetaphors([]);
   }, []);
 
   const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -986,11 +907,11 @@ export default function CardEditor() {
       proofSource: prev.proofSource ?? detectedSource,
       importedAt: new Date().toISOString(),
     }));
-    setTokenInput(nextTotalTokens.toLocaleString());
+    setTokenInput(formatTokensFull(nextTotalTokens, data.locale));
     setProofFeedback(isZh
-      ? `已按导入记录更新为 ${nextTotalTokens.toLocaleString()} token，并切换到"数据导入"状态。`
-      : `Updated the card to ${nextTotalTokens.toLocaleString()} tokens and switched it to usage-imported status.`);
-  }, [data.lastMonthTokens, data.totalTokens, isZh, usageImportText]);
+      ? `已按导入记录更新为 ${formatTokens(nextTotalTokens, data.locale)}，并切换到“数据导入”状态。`
+      : `Updated the card to ${formatTokens(nextTotalTokens, data.locale)} and switched it to usage-imported status.`);
+  }, [data.lastMonthTokens, data.locale, data.totalTokens, isZh, usageImportText]);
 
   const resetTrustState = useCallback(() => {
     setData((prev) => ({
@@ -1052,7 +973,7 @@ export default function CardEditor() {
       return [selectedAiCaption.title, selectedAiCaption.body, selectedAiCaption.hashtags.join(' ')].filter(Boolean).join('\n');
     }
 
-    const tokenText = data.totalTokens > 0 ? data.totalTokens.toLocaleString() : '0';
+    const tokenText = data.totalTokens > 0 ? formatTokens(data.totalTokens, data.locale) : '0';
     const projectLabel = data.primaryProjectName.trim();
     const projectPitch = data.primaryProjectPitch.trim();
     return isZh
@@ -1070,7 +991,7 @@ export default function CardEditor() {
           rankingSignalLabel,
           '#TokCard #AIBuilders',
         ].filter(Boolean).join('\n');
-  }, [activeMetaphor, data.primaryProjectName, data.primaryProjectPitch, data.totalTokens, data.username, isZh, rankingSignalLabel, sortedAiCaptions]);
+  }, [activeMetaphor, data.locale, data.primaryProjectName, data.primaryProjectPitch, data.totalTokens, data.username, isZh, rankingSignalLabel, sortedAiCaptions]);
   const recommendedAiCaption = useMemo(() => sortedAiCaptions[0] ?? null, [sortedAiCaptions]);
   const recommendedCaptionText = useMemo(() => (
     recommendedAiCaption
@@ -1420,14 +1341,24 @@ export default function CardEditor() {
                 <p className="mt-2 text-xs text-red-500">{isZh ? '无法识别的格式，请用数字或 K/M/B/万 缩写' : 'Unrecognized format. Use numbers or K/M/B suffixes.'}</p>
               )}
               <p className="mt-2 text-xs text-[#86868b]">
-                {isZh ? '支持 K/M/B/万 缩写，如 2.3B = 23 亿' : 'Supports K/M/B suffixes, e.g. 2.3B = 2,300,000,000'}
+                {isZh ? '支持 K/M/B/万 / 亿 缩写，例如 2.3B 会自动显示为 23 亿。' : 'Supports K/M/B suffixes and will clean the final display automatically.'}
               </p>
-              {data.totalTokens > 0 && rankTier && (
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-2 text-xs font-medium text-[#334155]">
-                  <span>{rankTier.badge}</span>
-                  <span>
-                    {isZh ? `当前等级：${rankTier.label} · ${rankTier.clubLabel}` : `Current tier: ${rankTier.labelEn} · ${rankTier.clubLabelEn}`}
-                  </span>
+              {data.totalTokens > 0 && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <div className="rounded-2xl border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] px-4 py-3 shadow-sm">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '显示效果' : 'Display preview'}</div>
+                    <div className="mt-2 text-xl font-semibold tracking-tight text-[#0f172a]">{tokenCompactDisplay}</div>
+                    <div className="mt-1 text-xs text-[#64748b]">{isZh ? `完整值 ${tokenFullDisplay}` : `${tokenFullDisplay} total tokens`}</div>
+                    <div className="mt-2 text-sm font-medium text-[#475569]">{tokenValueEstimate}</div>
+                    <div className="mt-1 text-[11px] leading-5 text-[#94a3b8]">{isZh ? '按主流模型混合价格粗略估算，帮助别人理解量级。' : 'A blended market estimate to make the scale easier to understand.'}</div>
+                  </div>
+                  {rankTier && (
+                    <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-xs font-medium text-[#334155] shadow-sm sm:min-w-[196px]">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '当前档位' : 'Current tier'}</div>
+                      <div className="mt-2 text-sm font-semibold text-[#1d1d1f]">{rankTier.badge} {isZh ? rankTier.clubLabel : rankTier.clubLabelEn}</div>
+                      <div className="mt-1 text-xs text-[#64748b]">{isZh ? `${rankTier.label} · 更适合放大“实力感”` : `${rankTier.labelEn} · makes the card feel stronger at first glance`}</div>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
@@ -1566,7 +1497,7 @@ export default function CardEditor() {
                     {isZh ? '更多设置' : 'More options'}
                   </span>
                   <span className="ml-2 text-xs text-[#94a3b8]">
-                    {isZh ? '风格、文案、头像和少量进阶项' : 'Style, captions, avatar, and a few advanced controls'}
+                    {isZh ? '模板、身份、可信度和少量扩展项' : 'Templates, identity, trust, and a few extra controls'}
                   </span>
                 </div>
                 <span className={`text-[#86868b] transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▼</span>
@@ -1577,22 +1508,51 @@ export default function CardEditor() {
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
                   <div className="text-[13px] font-semibold text-[#86868b] uppercase tracking-wide">{isZh ? '精选模板' : 'Curated templates'}</div>
-                  <div className="mt-1 text-xs text-[#94a3b8]">{isZh ? '只保留 4 个最常用的场景模板。' : 'Only 4 clear starting points remain.'}</div>
+                  <div className="mt-1 text-xs text-[#94a3b8]">{isZh ? '先按发帖平台选，再选最贴近你这次传播语气的版本。' : 'Pick the target platform first, then choose the mood that matches this post.'}</div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {CARD_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => applyPreset(preset.id)}
-                    className="rounded-2xl border border-[#dbe4ff] bg-white p-3 text-left transition hover:border-[#0071e3] hover:shadow-sm"
-                    style={{ borderLeftWidth: 3, borderLeftColor: preset.accent }}
-                  >
-                    <div className="text-lg leading-none">{preset.emoji}</div>
-                    <div className="mt-2 text-xs font-semibold text-[#1d1d1f] leading-tight">{isZh ? preset.name : preset.nameEn}</div>
-                    <div className="mt-1 text-[10px] leading-4 text-[#94a3b8]">{isZh ? preset.description : preset.descriptionEn}</div>
-                  </button>
+              <div className="space-y-4">
+                {presetGroups.map((group) => (
+                  <div key={group.platform} className="rounded-[24px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-[#1d1d1f]">{group.label}</div>
+                        <div className="mt-1 text-xs leading-5 text-[#64748b]">{group.note}</div>
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-2.5 py-1 text-[11px] font-medium text-[#64748b]">
+                        {group.presets.length} {isZh ? '套风格' : 'styles'}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {group.presets.map((preset: CardPreset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => applyPreset(preset.id)}
+                          className="rounded-[22px] border border-[#dbe4ff] bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-[#0071e3] hover:shadow-[0_16px_30px_rgba(0,113,227,0.10)]"
+                        >
+                          <div
+                            className={`rounded-[18px] px-4 py-4 ${preset.previewTone === 'light' ? 'text-[#0f172a]' : 'text-white'}`}
+                            style={{
+                              background: preset.preview,
+                              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.16), 0 14px 28px ${preset.accent}26`,
+                            }}
+                          >
+                            <div className={`flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] ${preset.previewTone === 'light' ? 'text-[#475569]' : 'text-white/80'}`}>
+                              <span>{preset.emoji}</span>
+                              <span>{isZh ? PLATFORMS[preset.platform].labelZh : PLATFORMS[preset.platform].label}</span>
+                            </div>
+                            <div className={`mt-7 text-base font-semibold ${preset.previewTone === 'light' ? 'text-[#0f172a]' : 'text-white'}`}>{isZh ? preset.name : preset.nameEn}</div>
+                            <div className={`mt-1 text-xs leading-5 ${preset.previewTone === 'light' ? 'text-[#334155]' : 'text-white/78'}`}>{isZh ? preset.description : preset.descriptionEn}</div>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3 px-1">
+                            <span className="text-xs font-medium text-[#475569]">{isZh ? '一键套用平台语境' : 'Apply platform context'}</span>
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white shadow-sm" style={{ backgroundColor: preset.accent }}>→</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1630,88 +1590,14 @@ export default function CardEditor() {
               <summary className="cursor-pointer list-none">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '个人形象与补充信息' : 'Profile and extra tuning'}</div>
-                    <div className="mt-1 text-sm text-[#64748b]">{isZh ? '名字、签名、头像和少量补充项收进这里，主界面只保留最重要的。' : 'Name, slogan, avatar, and extra tuning live here so the main area stays focused.'}</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '头像与身份' : 'Avatar and identity'}</div>
+                    <div className="mt-1 text-sm text-[#64748b]">{isZh ? '这里保留头像和身份的小幅调整，默认不抢主流程注意力。' : 'Keep avatar and identity tuning here so the main flow stays visually clean.'}</div>
                   </div>
                   <span className="text-xs font-semibold text-[#94a3b8]">{isZh ? '展开' : 'Open'}</span>
                 </div>
               </summary>
               <div className="mt-5 space-y-6">
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-[13px] font-semibold text-[#86868b] uppercase tracking-wide">
-                  {isZh ? 'AI 签名建议' : 'AI slogan ideas'}
-                </label>
-                <button
-                  type="button"
-                  onClick={handleGenerateSlogan}
-                  disabled={isGeneratingSlogan || data.totalTokens <= 0}
-                  className="text-xs px-3 py-1.5 rounded-full font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 bg-[#111827]/10 text-[#111827] hover:bg-[#111827]/15"
-                >
-                  {isGeneratingSlogan ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '✨ 生成 3 条签名' : '✨ Generate 3 slogans')}
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {Object.entries(SLOGAN_MODE_LABELS).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSloganMode(key as keyof typeof SLOGAN_MODE_LABELS)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${sloganMode === key ? 'bg-[#0071e3] text-white' : 'bg-[#eef4ff] text-[#1d1d1f] hover:bg-[#dce9ff]'}`}
-                  >
-                    {isZh ? label.zh : label.en}
-                  </button>
-                ))}
-                {Object.entries(SLOGAN_CATEGORY_LABELS).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSloganCategory(key as keyof typeof SLOGAN_CATEGORY_LABELS)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${sloganCategory === key ? 'bg-[#111827] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
-                  >
-                    {isZh ? label.zh : label.en}
-                  </button>
-                ))}
-              </div>
-              {aiSlogans.length > 0 && (
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {aiSlogans.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => updateField('slogan', s)}
-                      className={`rounded-xl border px-3 py-2 text-left text-sm transition-all ${data.slogan === s ? 'border-[#0071e3] bg-[#eef5ff] text-[#0071e3]' : 'border-[#dbe4ff] bg-white text-[#334155] hover:border-[#0071e3]'}`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Last month tokens */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                  {isZh ? '上月 Token' : 'Last month tokens'}
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={data.lastMonthTokens || ''}
-                  onChange={e => updateField('lastMonthTokens', Math.max(0, Number(e.target.value) || 0))}
-                  placeholder={isZh ? '用于生成增速徽章' : 'Used for growth badge'}
-                  className="w-full px-4 py-3.5 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all shadow-sm"
-                />
-              </div>
-              <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">{isZh ? '自动档位' : 'Auto rank'}</div>
-                <div className="mt-2 text-lg font-semibold text-[#1d1d1f]">{rankTier.badge} {isZh ? rankTier.clubLabel : rankTier.clubLabelEn}</div>
-                <div className="mt-1 text-sm text-[#64748b]">{rankingSignalLabel}{growth > 0 ? ` · +${growth}%` : ''}</div>
-                <div className="mt-1 text-xs leading-5 text-[#94a3b8]">{rankingSignalDescription}</div>
-              </div>
-            </div>
             {/* Avatar */}
             <div>
               <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
@@ -1881,366 +1767,254 @@ export default function CardEditor() {
               )}
             </div>
 
-            <div>
-              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '模型分布' : 'Model mix'}
-              </label>
-              <div className="space-y-3">
-                {data.modelBreakdown.map((model, index) => (
-                  <div key={`${model.name}-${index}`} className="grid grid-cols-[minmax(0,1fr)_100px] gap-3">
-                    <input
-                      type="text"
-                      value={model.name}
-                      onChange={e => handleModelBreakdown(index, 'name', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={model.percentage}
-                      onChange={e => handleModelBreakdown(index, 'percentage', Math.max(0, Number(e.target.value) || 0))}
-                      className="w-full px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Metaphor category */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-[13px] font-semibold text-[#86868b] uppercase tracking-wide">
-                  {isZh ? '比喻风格' : 'Metaphor Style'}
-                </label>
-                <button type="button"
-                  onClick={handleGenerateMetaphor}
-                  disabled={isGeneratingMetaphor}
-                  className="text-xs px-3 py-1.5 rounded-full font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 bg-[#0071e3]/10 text-[#0071e3] hover:bg-[#0071e3]/20"
-                >
-                  {isGeneratingMetaphor ? (isZh ? '生成中...' : 'Generating...') : (isZh ? '✨ AI 生成比喻' : '✨ AI Metaphors')}
-                </button>
-              </div>
-              {aiMetaphors.length > 0 && (
-                <>
-                  <div className="mb-4 p-4 rounded-xl bg-white border border-[#0071e3]/30 shadow-sm">
-                    <div className="text-xs font-medium mb-3 text-[#0071e3]">{isZh ? 'AI 生成的比喻 (点击应用)' : 'AI Generated Metaphors (tap to apply)'}</div>
-                    <div className="flex flex-col gap-2">
-                      {aiMetaphors.map((m, i) => (
-                        <button
-                          type="button"
-                          key={i}
-                          onClick={() => updateField('customMetaphor', m)}
-                          className={`text-left text-sm px-4 py-2.5 rounded-lg transition-all border ${data.customMetaphor === m ? 'bg-[#0071e3] text-white border-[#0071e3] shadow-sm' : 'bg-[#f5f5f7] text-[#1d1d1f] border-transparent hover:bg-[#0071e3] hover:text-white'}`}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="mt-3 text-xs text-[#86868b]">
-                    {data.customMetaphor ? (isZh ? '已应用到卡片预览，点击其他项可切换。' : 'Applied to the card preview. Tap another option to switch.') : (isZh ? '点击任意比喻即可应用到卡片。' : 'Tap any metaphor to apply it to the card.')}
-                  </p>
-                </>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(METAPHOR_CATEGORY_LABELS).map(([key, label]) => {
-                  const l = label as any;
-                  return (
-                  <button type="button"
-                    key={key}
-                    onClick={() => handleMetaphorCategoryChange(key as CardData['metaphorCategory'])}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${data.metaphorCategory === key ? 'bg-[#1d1d1f] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
-                  >
-                    {isZh ? l.zh : l.en}
-                  </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <details className="rounded-[24px] border border-[#e5e7eb] bg-[#fafafa] px-4 py-4">
-              <summary className="cursor-pointer list-none">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '数据与可信度' : 'Data and trust'}</div>
-                    <div className="mt-1 text-sm text-[#64748b]">{isZh ? '项目链接、可信度设置和导入能力都放在这里，需要时再展开。' : 'Project links, trust settings, and import tools stay here when you need them.'}</div>
-                  </div>
-                  <span className="text-xs font-semibold text-[#94a3b8]">{isZh ? '展开' : 'Open'}</span>
-                </div>
-              </summary>
-              <div className="mt-5 space-y-6">
-
-            <div>
-              <label className="block text-[13px] font-semibold text-[#86868b] mb-2 uppercase tracking-wide">
-                {isZh ? '我的链接' : 'My links'}
-              </label>
-              <p className="text-xs text-[#94a3b8] mb-3">
-                {isZh ? '粘贴链接即可，系统自动识别图标和名称。第一个链接会生成卡片上的二维码。' : 'Just paste URLs — icons and names are auto-detected. The first link becomes the QR code on your card.'}
+            <div className="rounded-[24px] border border-[#e2e8f0] bg-[#fafcff] px-4 py-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '已降级的低频设置' : 'Low-frequency controls demoted'}</div>
+              <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                {isZh ? '这轮把模型分布、比喻风格、上月 token 等低频项降到更低优先级，先让模板、项目、可信度和分享结果更清楚。' : 'This round intentionally demotes low-frequency controls like model mix, metaphor style, and last-month tokens so templates, project story, trust, and sharing stay clearer.'}
               </p>
-              <div className="space-y-2">
-                {ensureProjectSlots.map((project, index) => (
-                  <div key={project.id} className="flex items-center gap-2">
-                    <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f5f5f7] text-sm flex-shrink-0">
-                      {project.icon || '🔗'}
-                    </span>
-                    <input
-                      type="url"
-                      value={project.url}
-                      onChange={e => handleProjectUrlChange(index, e.target.value)}
-                      placeholder={index === 0
-                        ? (isZh ? '粘贴你最重要的链接（如 GitHub）' : 'Paste your main link (e.g. GitHub)')
-                        : (isZh ? '再加一个（选填）' : 'Add another (optional)')
-                      }
-                      className="flex-1 px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all text-sm"
-                    />
-                    {project.name && (
-                      <span className="text-xs text-[#64748b] font-medium flex-shrink-0 hidden sm:inline">{project.name}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {ensureProjectSlots[0]?.url && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-[#94a3b8]">
-                  <span>📱</span>
-                  <span>{isZh ? '导出后会自动生成 TokCard 二维码，扫码可看卡片和排行' : 'Export adds a TokCard QR so people can open your card and ranking'}</span>
-                </div>
-              )}
-              {ensureProjectSlots[0]?.url && !primaryProjectUrl && (
-                <div className={`mt-3 rounded-2xl border px-4 py-3 text-xs leading-5 ${showValidation ? 'border-red-400 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
-                  {isZh ? '当前主项目链接不是有效的 http/https 地址，导出和分享前请修正。' : 'The primary project link is not a valid http/https URL. Fix it before exporting.'}
-                </div>
-              )}
-              {showValidation && fieldErrors.project && !ensureProjectSlots[0]?.url && (
-                <div className="mt-3 rounded-2xl border border-red-400 bg-red-50 px-4 py-3 text-xs leading-5 text-red-700">
-                  {isZh ? '请至少添加一个项目链接' : 'Add at least one project link'}
-                </div>
-              )}
             </div>
 
-            <div className="rounded-[24px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '可信等级' : 'Trust layer'}</div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span
-                      className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold"
-                      style={{
-                        color: trustTierAccent,
-                        borderColor: `${trustTierAccent}33`,
-                        backgroundColor: `${trustTierAccent}12`,
-                      }}
-                    >
-                      {trustTierLabel}
-                    </span>
-                    {data.proofSource && (
-                      <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-[#f8fbff] px-3 py-1 text-xs font-medium text-[#334155]">
-                        {proofSourceLabel}
+            <div className="grid gap-4">
+              <div className="rounded-[24px] border border-[#dbe4ff] bg-white p-5 shadow-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '我的链接' : 'My links'}</div>
+                <div className="mt-2 text-sm leading-6 text-[#64748b]">{isZh ? '把最重要的项目入口放这里。第一个链接会生成卡片二维码，也会成为分享页的主入口。' : 'Put the most important project destinations here. The first link becomes both the QR code target and the main shared destination.'}</div>
+                <div className="mt-4 space-y-3">
+                  {ensureProjectSlots.map((project, index) => (
+                    <div key={project.id} className="flex items-center gap-2">
+                      <span className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f5f7fb] text-sm flex-shrink-0">
+                        {project.icon || '🔗'}
                       </span>
-                    )}
-                    {proofRangeLabel && (
-                      <span className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-3 py-1 text-xs font-medium text-[#64748b]">
-                        {proofRangeLabel}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-3 max-w-3xl text-sm leading-6 text-[#6b7280]">
-                    {trustTierDescription}
-                  </p>
+                      <input
+                        type="url"
+                        value={project.url}
+                        onChange={e => handleProjectUrlChange(index, e.target.value)}
+                        placeholder={index === 0
+                          ? (isZh ? '主项目链接（如官网 / GitHub）' : 'Primary project link (site or GitHub)')
+                          : (isZh ? '补充链接（选填）' : 'Additional link (optional)')
+                        }
+                        className="flex-1 px-4 py-3 bg-white border border-[#d2d2d7] rounded-xl text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10 transition-all text-sm"
+                      />
+                    </div>
+                  ))}
                 </div>
-                <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 lg:min-w-[220px]">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '排名资格' : 'Ranking access'}</div>
-                  <div className="mt-2 text-sm font-semibold text-[#1d1d1f]">
-                    {rankingDisplay === 'hidden'
-                      ? (isZh ? '仅展示档位信号，不进正式排名' : 'Tier signal only, no official ranking yet')
-                      : rankingDisplay === 'range'
-                        ? (isZh ? '可进入区间比较 / 百分位展示' : 'Eligible for range comparison / percentile views')
-                        : (isZh ? '可进入更强的排名展示' : 'Eligible for stronger ranking views')}
+                {ensureProjectSlots[0]?.url && (
+                  <div className="mt-3 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-xs leading-5 text-[#64748b]">
+                    {isZh ? '导出后会自动带上 TokCard 二维码和分享链接，别人可以先看卡片，再点进你的项目。' : 'Export will automatically carry a TokCard QR and share link so people can see the card first, then open your project.'}
                   </div>
-                  <div className="mt-1 text-xs leading-5 text-[#64748b]">
-                    {rankingSignalDescription}
+                )}
+                {ensureProjectSlots[0]?.url && !primaryProjectUrl && (
+                  <div className={`mt-3 rounded-2xl border px-4 py-3 text-xs leading-5 ${showValidation ? 'border-red-400 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                    {isZh ? '当前主项目链接不是有效的 http/https 地址，导出和分享前请修正。' : 'The primary project link is not a valid http/https URL. Fix it before exporting.'}
                   </div>
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setProofCaptureMode('screenshot')}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${proofCaptureMode === 'screenshot' ? 'bg-[#0071e3] text-white' : 'bg-[#eef4ff] text-[#1d1d1f] hover:bg-[#dce9ff]'}`}
-                >
-                  {isZh ? '截图佐证' : 'Screenshot proof'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProofCaptureMode('import')}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${proofCaptureMode === 'import' ? 'bg-[#111827] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
-                >
-                  {isZh ? '导入消费记录' : 'Import usage'}
-                </button>
-                {data.trustTier !== 'self-reported' && (
-                  <button
-                    type="button"
-                    onClick={resetTrustState}
-                    className="rounded-full border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-medium text-[#64748b] hover:bg-[#f8fafc]"
-                  >
-                    {isZh ? '恢复为用户填写' : 'Reset to self-reported'}
-                  </button>
+                )}
+                {showValidation && fieldErrors.project && !ensureProjectSlots[0]?.url && (
+                  <div className="mt-3 rounded-2xl border border-red-400 bg-red-50 px-4 py-3 text-xs leading-5 text-red-700">
+                    {isZh ? '请至少添加一个项目链接' : 'Add at least one project link'}
+                  </div>
                 )}
               </div>
 
-              {proofCaptureMode === 'screenshot' ? (
-                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-                  <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleProofFileUpload}
-                      ref={proofFileInputRef}
-                      className="hidden"
-                    />
-                    <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '添加截图凭证' : 'Add screenshot proof'}</div>
-                    <p className="mt-2 text-xs leading-5 text-[#64748b]">
-                      {isZh ? '仅用于标记信任等级，截图不会上传到服务器。分享时只带标签、来源和日期范围。' : 'Used to mark trust level only. Screenshots stay local; only the label, source, and date range travel with the card.'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => proofFileInputRef.current?.click()}
-                      className="mt-4 inline-flex items-center justify-center rounded-xl border border-[#d2d2d7] bg-white px-4 py-2.5 text-sm font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
-                    >
-                      {isZh ? '选择截图' : 'Choose screenshots'}
-                    </button>
-                    {proofFiles.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {proofFiles.map((file) => (
-                          <span key={`${file.name}-${file.size}`} className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-3 py-1 text-xs font-medium text-[#334155]">
-                            {file.name}
-                          </span>
-                        ))}
+              <div className="rounded-[24px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-sm">
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '可信等级与进榜' : 'Trust and ranking access'}</div>
+                    <div className="mt-2 text-lg font-semibold text-[#1d1d1f]">{isZh ? '让别人一眼知道你现在是什么状态，以及怎么进榜。' : 'Make the current trust state and ranking path obvious at a glance.'}</div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <div className="rounded-2xl border border-[#dbe4ff] bg-white p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '当前状态' : 'Current state'}</div>
+                      <div className="mt-3 inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold" style={{ color: trustTierAccent, borderColor: `${trustTierAccent}33`, backgroundColor: `${trustTierAccent}12` }}>
+                        {trustTierLabel}
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-[#64748b]">{trustTierDescription}</p>
+                      {(data.proofSource || proofRangeLabel) && (
+                        <div className="mt-3 space-y-2 text-xs text-[#475569]">
+                          {data.proofSource && <div>{isZh ? '来源：' : 'Source: '}{proofSourceLabel}</div>}
+                          {proofRangeLabel && <div>{isZh ? '时间范围：' : 'Date range: '}{proofRangeLabel}</div>}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-[#dbe4ff] bg-white p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '进榜资格' : 'Ranking access'}</div>
+                      <div className="mt-3 text-sm font-semibold text-[#1d1d1f]">{rankingAccessGuide.title}</div>
+                      <p className="mt-2 text-sm leading-6 text-[#64748b]">{rankingAccessGuide.description}</p>
+                      <div className="mt-3 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-3 py-3 text-xs leading-5 text-[#475569]">
+                        <div className="font-semibold text-[#334155]">{isZh ? '进入正式排名的方法' : 'How to enter official rankings'}</div>
+                        <div className="mt-1">{rankingAccessGuide.nextStep}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#dbe4ff] bg-white p-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProofCaptureMode('screenshot')}
+                        className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${proofCaptureMode === 'screenshot' ? 'bg-[#0071e3] text-white' : 'bg-[#eef4ff] text-[#1d1d1f] hover:bg-[#dce9ff]'}`}
+                      >
+                        {isZh ? '上传 usage 截图' : 'Add screenshot proof'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProofCaptureMode('import')}
+                        className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${proofCaptureMode === 'import' ? 'bg-[#111827] text-white' : 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'}`}
+                      >
+                        {isZh ? '导入 usage 记录' : 'Import usage'}
+                      </button>
+                      {data.trustTier !== 'self-reported' && (
+                        <button
+                          type="button"
+                          onClick={resetTrustState}
+                          className="rounded-full border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-medium text-[#64748b] hover:bg-[#f8fafc]"
+                        >
+                          {isZh ? '恢复为用户填写' : 'Reset to self-reported'}
+                        </button>
+                      )}
+                    </div>
+
+                    {proofCaptureMode === 'screenshot' ? (
+                      <div className="mt-4 grid gap-4">
+                        <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleProofFileUpload}
+                            ref={proofFileInputRef}
+                            className="hidden"
+                          />
+                          <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '添加截图凭证' : 'Add screenshot proof'}</div>
+                          <p className="mt-2 text-xs leading-5 text-[#64748b]">{isZh ? '截图只用于升级可信等级，不会上传到服务器。' : 'Screenshots stay local and are only used to upgrade the trust state.'}</p>
+                          <button
+                            type="button"
+                            onClick={() => proofFileInputRef.current?.click()}
+                            className="mt-4 inline-flex items-center justify-center rounded-xl border border-[#d2d2d7] bg-white px-4 py-2.5 text-sm font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
+                          >
+                            {isZh ? '选择截图' : 'Choose screenshots'}
+                          </button>
+                          {proofFiles.length > 0 && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {proofFiles.map((file) => (
+                                <span key={`${file.name}-${file.size}`} className="inline-flex items-center rounded-full border border-[#dbe4ff] bg-white px-3 py-1 text-xs font-medium text-[#334155]">
+                                  {file.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-3 rounded-2xl border border-[#e2e8f0] bg-white p-4">
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '数据来源' : 'Source'}</label>
+                            <select
+                              value={data.proofSource ?? ''}
+                              onChange={(e) => updateField('proofSource', (e.target.value || undefined) as CardData['proofSource'])}
+                              className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                            >
+                              <option value="">{isZh ? '选择来源（可选）' : 'Choose source (optional)'}</option>
+                              {Object.entries(PROOF_SOURCE_META).map(([value, meta]) => {
+                                const m = meta as any;
+                                return <option key={value} value={value}>{isZh ? m.labelZh : m.label}</option>;
+                              })}
+                            </select>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                            <div>
+                              <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '开始日期' : 'Start date'}</label>
+                              <input
+                                type="date"
+                                value={data.proofDateRange?.start ?? ''}
+                                onChange={(e) => updateProofDateRange('start', e.target.value)}
+                                className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '结束日期' : 'End date'}</label>
+                              <input
+                                type="date"
+                                value={data.proofDateRange?.end ?? ''}
+                                onChange={(e) => updateProofDateRange('end', e.target.value)}
+                                className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={applyScreenshotBackedTrust}
+                            className="w-full rounded-xl bg-[#0ea5e9] px-4 py-3 text-sm font-semibold text-white hover:bg-[#0284c7]"
+                          >
+                            {isZh ? '升级为截图佐证' : 'Upgrade to screenshot-backed'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 grid gap-4">
+                        <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
+                          <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '粘贴 usage 文本、账单摘要或导出内容' : 'Paste usage text, billing summary, or export data'}</div>
+                          <p className="mt-2 text-xs leading-5 text-[#64748b]">{isZh ? 'TokCard 会识别 token 数字和来源，并把这张卡升级到可进榜的状态。' : 'TokCard will detect token volume and source, then upgrade the card to a ranking-ready state.'}</p>
+                          <textarea
+                            value={usageImportText}
+                            onChange={(e) => setUsageImportText(e.target.value)}
+                            placeholder={isZh ? '例如：Claude usage for Mar 1 - Mar 31: 2.3B input/output tokens...' : 'Example: Claude usage for Mar 1 - Mar 31: 2.3B input/output tokens...'}
+                            className="mt-4 h-40 w-full rounded-2xl border border-[#d2d2d7] bg-white p-4 text-sm leading-6 text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] resize-none"
+                          />
+                        </div>
+                        <div className="space-y-3 rounded-2xl border border-[#e2e8f0] bg-white p-4">
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '数据来源' : 'Source'}</label>
+                            <select
+                              value={data.proofSource ?? ''}
+                              onChange={(e) => updateField('proofSource', (e.target.value || undefined) as CardData['proofSource'])}
+                              className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                            >
+                              <option value="">{isZh ? '自动识别或手动选择' : 'Auto-detect or select manually'}</option>
+                              {Object.entries(PROOF_SOURCE_META).map(([value, meta]) => {
+                                const m = meta as any;
+                                return <option key={value} value={value}>{isZh ? m.labelZh : m.label}</option>;
+                              })}
+                            </select>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                            <div>
+                              <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '开始日期' : 'Start date'}</label>
+                              <input
+                                type="date"
+                                value={data.proofDateRange?.start ?? ''}
+                                onChange={(e) => updateProofDateRange('start', e.target.value)}
+                                className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '结束日期' : 'End date'}</label>
+                              <input
+                                type="date"
+                                value={data.proofDateRange?.end ?? ''}
+                                onChange={(e) => updateProofDateRange('end', e.target.value)}
+                                className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleImportUsageRecord}
+                            className="w-full rounded-xl bg-[#111827] px-4 py-3 text-sm font-semibold text-white hover:bg-[#0f172a]"
+                          >
+                            {isZh ? '解析并升级到可进榜状态' : 'Parse and upgrade for ranking'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {proofFeedback && (
+                      <div className="mt-4 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-sm text-[#334155]">
+                        {proofFeedback}
                       </div>
                     )}
                   </div>
-                  <div className="space-y-3 rounded-2xl border border-[#e2e8f0] bg-white p-4">
-                    <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
-                        {isZh ? '数据来源' : 'Source'}
-                      </label>
-                      <select
-                        value={data.proofSource ?? ''}
-                        onChange={(e) => updateField('proofSource', (e.target.value || undefined) as CardData['proofSource'])}
-                        className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                      >
-                        <option value="">{isZh ? '选择来源（可选）' : 'Choose source (optional)'}</option>
-                        {Object.entries(PROOF_SOURCE_META).map(([value, meta]) => {
-                          const m = meta as any;
-                          return (
-                          <option key={value} value={value}>{isZh ? m.labelZh : m.label}</option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                      <div>
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '开始日期' : 'Start date'}</label>
-                        <input
-                          type="date"
-                          value={data.proofDateRange?.start ?? ''}
-                          onChange={(e) => updateProofDateRange('start', e.target.value)}
-                          className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '结束日期' : 'End date'}</label>
-                        <input
-                          type="date"
-                          value={data.proofDateRange?.end ?? ''}
-                          onChange={(e) => updateProofDateRange('end', e.target.value)}
-                          className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={applyScreenshotBackedTrust}
-                      className="w-full rounded-xl bg-[#0ea5e9] px-4 py-3 text-sm font-semibold text-white hover:bg-[#0284c7]"
-                    >
-                      {isZh ? '标记为截图佐证' : 'Mark as proof attached'}
-                    </button>
-                  </div>
                 </div>
-              ) : (
-                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-                  <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] p-4">
-                    <div className="text-sm font-semibold text-[#1d1d1f]">{isZh ? '粘贴 usage 文本、账单摘要或导出内容' : 'Paste usage text, billing summary, or export data'}</div>
-                    <p className="mt-2 text-xs leading-5 text-[#64748b]">
-                      {isZh ? '可以是 dashboard 文本、账单摘要、CSV/JSON 摘要片段。TokCard 会尽量识别来源和 token 数字，并允许你继续手动修正。' : 'Paste dashboard text, billing snippets, or CSV/JSON summaries. TokCard will try to detect the source and token volume, then you can still refine the numbers manually.'}
-                    </p>
-                    <textarea
-                      value={usageImportText}
-                      onChange={(e) => setUsageImportText(e.target.value)}
-                      placeholder={isZh ? '例如：Claude usage for Mar 1 - Mar 31: 2.3B input/output tokens...' : 'Example: Claude usage for Mar 1 - Mar 31: 2.3B input/output tokens...'}
-                      className="mt-4 h-40 w-full rounded-2xl border border-[#d2d2d7] bg-white p-4 text-sm leading-6 text-[#1d1d1f] placeholder-[#94a3b8] focus:outline-none focus:border-[#0071e3] resize-none"
-                    />
-                  </div>
-                  <div className="space-y-3 rounded-2xl border border-[#e2e8f0] bg-white p-4">
-                    <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
-                        {isZh ? '数据来源' : 'Source'}
-                      </label>
-                      <select
-                        value={data.proofSource ?? ''}
-                        onChange={(e) => updateField('proofSource', (e.target.value || undefined) as CardData['proofSource'])}
-                        className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                      >
-                        <option value="">{isZh ? '自动识别或手动选择' : 'Auto-detect or select manually'}</option>
-                        {Object.entries(PROOF_SOURCE_META).map(([value, meta]) => {
-                          const m = meta as any;
-                          return (
-                          <option key={value} value={value}>{isZh ? m.labelZh : m.label}</option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                      <div>
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '开始日期' : 'Start date'}</label>
-                        <input
-                          type="date"
-                          value={data.proofDateRange?.start ?? ''}
-                          onChange={(e) => updateProofDateRange('start', e.target.value)}
-                          className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '结束日期' : 'End date'}</label>
-                        <input
-                          type="date"
-                          value={data.proofDateRange?.end ?? ''}
-                          onChange={(e) => updateProofDateRange('end', e.target.value)}
-                          className="mt-2 w-full rounded-xl border border-[#d2d2d7] bg-white px-4 py-3 text-sm text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleImportUsageRecord}
-                      className="w-full rounded-xl bg-[#111827] px-4 py-3 text-sm font-semibold text-white hover:bg-[#0f172a]"
-                    >
-                      {isZh ? '解析并应用到卡片' : 'Parse and apply to card'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {proofFeedback && (
-                <div className="mt-4 rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-sm text-[#334155]">
-                  {proofFeedback}
-                </div>
-              )}
               </div>
             </div>
-            </details>
             <div className="hidden lg:flex gap-3 mt-6">
               <button type="button" onClick={() => setStep(1)}
                 className="px-6 py-3.5 rounded-xl border border-[#d2d2d7] text-[#1d1d1f] font-semibold hover:bg-[#f5f5f7]">
