@@ -69,9 +69,9 @@ Token：${tokenDesc}
 要求：
 - 输出 3 个版本：FLEX、HYPE、TECH
 - 每个版本必须包含 TITLE / BODY / HASHTAGS / EMOJI / VIBE
-- TITLE 不超过 10 个字
-- BODY 只写 1-2 句短句，不要长段落
-- HASHTAGS 最多 2 个
+- TITLE 不超过 8 个字
+- BODY 只写 1 句短句，尽量控制在 22 个字内
+- HASHTAGS 最多 1 个，没有必要可以留空
 - TECH 版本最自然地体现可信 / 排名信号
 - ${trustHint}
 - 文案要短、准、可直接复制，不要废话
@@ -94,9 +94,9 @@ Ranking signal: ${rankingSignalLabel || 'not provided'}
 Requirements:
 - Output 3 variants: FLEX, HYPE, TECH
 - Each variant must include TITLE / BODY / HASHTAGS / EMOJI / VIBE
-- TITLE must be 8 words or fewer
-- BODY must be only 1-2 short sentences
-- HASHTAGS must contain no more than 2 hashtags
+- TITLE must be 6 words or fewer
+- BODY must be a single short sentence
+- HASHTAGS must contain no more than 1 hashtag, and can be empty
 - TECH should carry the trust or ranking signal most naturally
 - ${trustHint}
 - Keep everything short, clear, and directly usable

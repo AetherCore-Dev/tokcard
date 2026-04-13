@@ -177,29 +177,29 @@ export const TRUST_TIER_META: Record<TrustTier, {
   'self-reported': {
     label: 'Self reported',
     labelZh: '用户填写',
-    description: 'Ready to share now. It shows a tier signal first, and you can enter official rankings after adding a screenshot or importing usage records.',
-    descriptionZh: '适合先发先传播。当前先展示档位信号；补 usage 截图或导入 usage 记录后，就能进入正式排名。',
+    description: 'Ready to share now. Add proof later to enter official rankings.',
+    descriptionZh: '可先分享。补截图或导入 usage 后进正式排名。',
     accent: '#64748b',
   },
   'screenshot-backed': {
     label: 'Proof attached',
     labelZh: '截图佐证',
-    description: 'Backed by a usage or billing screenshot. It can enter percentile-style comparison now, and imported usage unlocks clearer ranking positions.',
-    descriptionZh: '已附 usage 或账单截图。现在可以进入区间比较 / 百分位展示；继续导入 usage 记录后，能获得更明确的排名位置。',
+    description: 'Screenshot-backed. It can join range-based comparisons now.',
+    descriptionZh: '截图佐证。现在可进入区间比较。',
     accent: '#0ea5e9',
   },
   'usage-imported': {
     label: 'Usage imported',
     labelZh: '数据导入',
-    description: 'Imported from usage text or dashboard summaries. This state is eligible for official rankings and focused leaderboard views.',
-    descriptionZh: '已导入 usage 文本或摘要，可进入正式排名，并支持排行榜聚焦查看。',
+    description: 'Imported usage. This state is eligible for official rankings.',
+    descriptionZh: '已导入 usage，可进入正式排名。',
     accent: '#f59e0b',
   },
   'strong-authenticated': {
     label: 'Verified source',
     labelZh: '官方验证',
-    description: 'Reserved for future direct source integrations with the strongest ranking presentation.',
-    descriptionZh: '预留给未来更强的官方数据接入，可获得最高等级的排名展示。',
+    description: 'Reserved for future direct source integrations.',
+    descriptionZh: '预留给后续更强的数据直连。',
     accent: '#8b5cf6',
   },
 };
@@ -278,19 +278,19 @@ export function getRankingSignalLabel(rankTier: RankTierInfo, trustTier: TrustTi
 export function getRankingSignalDescription(rankTier: RankTierInfo, trustTier: TrustTier, locale: 'zh' | 'en'): string {
   if (trustTier === 'self-reported') {
     return locale === 'zh'
-      ? `当前只展示 ${rankTier.label} 档位。想进入正式排名，请补 usage 截图或导入 usage 记录。`
-      : `Currently shown as a ${rankTier.labelEn} tier signal. Add a screenshot or import usage records to enter official rankings.`;
+      ? `当前仅展示 ${rankTier.label} 档位；补截图或导入 usage 后进榜。`
+      : `Showing the ${rankTier.labelEn} tier for now. Add proof to enter rankings.`;
   }
 
   if (trustTier === 'screenshot-backed') {
     return locale === 'zh'
-      ? `基于截图佐证，已可用于 ${rankTier.topPercentLabel} 的区间比较；继续导入 usage 记录后，可获得更明确的排名位置。`
-      : `Screenshot-backed and eligible for ${rankTier.topPercentLabelEn} range-style comparison. Import usage records next for clearer ranking positions.`;
+      ? `截图佐证后，已可用于 ${rankTier.topPercentLabel} 区间比较。`
+      : `Screenshot-backed and ready for ${rankTier.topPercentLabelEn} range comparison.`;
   }
 
   return locale === 'zh'
-    ? `当前已具备正式排名资格，可进入 ${rankTier.topPercentLabel} 区间并被排行榜聚焦查看。`
-    : `This state is eligible for official rankings and can appear in the ${rankTier.topPercentLabelEn} bracket with focused leaderboard views.`;
+    ? `当前已具备正式排名资格，可进入 ${rankTier.topPercentLabel} 区间。`
+    : `Eligible for official rankings and ${rankTier.topPercentLabelEn} range placement.`;
 }
 
 export function formatProofDateRange(range: ProofDateRange | undefined, locale: 'zh' | 'en'): string {
@@ -334,7 +334,7 @@ export function parseTokenValue(raw: string): number {
     } else {
       num = parseFloat(cleaned) * 1_000_000;
     }
-  } else if (/^\d+(\.\d+)?[kK]$/i.test(cleaned)) {
+  } else if (/^\d+(\.\d+)?[kK千]$/i.test(cleaned)) {
     num = parseFloat(cleaned) * 1_000;
   } else {
     num = parseFloat(cleaned) || 0;

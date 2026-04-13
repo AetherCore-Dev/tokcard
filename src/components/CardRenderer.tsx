@@ -312,7 +312,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
   const proofRangeLabel = formatProofDateRange(data.proofDateRange, data.locale);
   const rankingSignalLabel = getRankingSignalLabel(rankTier, data.trustTier, data.locale);
   const rankingSignalDescription = getRankingSignalDescription(rankTier, data.trustTier, data.locale);
-  const trustSummary = [trustTierLabel, rankingSignalLabel, proofSourceLabel, proofRangeLabel].filter(Boolean).join(' · ');
+  const trustSummary = [trustTierLabel, proofSourceLabel].filter(Boolean).join(' · ');
+  const trustBadgeText = proofSourceLabel ? `${trustTierLabel} · ${proofSourceLabel}` : trustTierLabel;
   const messageLine = data.slogan.trim() || metaphor;
 
   const themeKey = normalizeTheme(data.theme);
@@ -452,19 +453,21 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6 * s,
-                padding: `${5 * s}px ${10 * s}px`,
+                gap: 4 * s,
+                padding: `${5 * s}px ${9 * s}px`,
                 borderRadius: 999,
                 background: tc.panelBg,
                 border: `1px solid ${tc.panelBorder}`,
-                fontSize: 10 * s,
+                fontSize: 9 * s,
                 fontWeight: 700,
                 color: tc.textDim,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                flexWrap: 'wrap',
+                maxWidth: '72%',
+                lineHeight: 1.2,
               }}
             >
-              <span>{isZh ? 'AI 战绩卡' : 'AI CARD'}</span>
+              <span>{isZh ? 'TokCard' : 'TokCard'}</span>
               <span style={{ opacity: 0.55 }}>·</span>
               <span>{tokenShort}</span>
             </div>
@@ -548,7 +551,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 9 * s, fontWeight: 700, color: tc.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                {isZh ? 'AI builder card' : 'AI builder card'}
+                {isZh ? 'Builder' : 'Builder'}
               </div>
               <div style={{ marginTop: 4 * s, overflow: 'hidden' }}>
                 <span
@@ -566,8 +569,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   {data.username || 'anonymous'}
                 </span>
               </div>
-              <div style={{ marginTop: 8 * s, fontSize: 10 * s, color: tc.textDim, letterSpacing: '0.06em' }}>
-                {isZh ? '先看战绩，再看项目，最后看排名。' : 'Lead with tokens, then project, then rank.'}
+              <div style={{ marginTop: 8 * s, fontSize: 10 * s, color: tc.textDim, letterSpacing: '0.04em' }}>
+                {isZh ? 'Token · 项目 · 排名' : 'Token · Project · Rank'}
               </div>
             </div>
           </div>
@@ -593,7 +596,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 <div
                   style={{
                     marginTop: 10 * s,
-                    fontSize: 48 * s,
+                    fontSize: 44 * s,
                     fontWeight: 900,
                     lineHeight: 0.96,
                     letterSpacing: '-0.05em',
@@ -670,9 +673,11 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                   fontSize: 10 * s,
                   fontWeight: 700,
                   color: tc.textSecondary,
+                  maxWidth: '100%',
+                  overflow: 'hidden',
                 }}
               >
-                <span>{trustTierLabel}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trustBadgeText}</span>
               </span>
             </div>
           </div>
@@ -749,7 +754,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 {isZh ? '可传播个人名片' : 'Share-ready identity card'}
               </div>
               <div style={{ fontSize: 10 * s, color: tc.textDim, marginTop: 6 * s, letterSpacing: '0.03em', lineHeight: 1.5 }}>
-                {trustSummary || (isZh ? 'Token、项目和排名会跟着这张卡一起传播。' : 'Token, project, and rank travel together with this card.')}
+                {trustSummary || (isZh ? 'Token 和项目会一起被看见。' : 'Tokens and project travel together.')}
               </div>
               <div style={{ marginTop: 10 * s, fontSize: 16 * s, fontWeight: 900, letterSpacing: '-0.03em', color: tc.text, display: 'flex', alignItems: 'center', gap: 6 * s }}>
                 <span
