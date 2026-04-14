@@ -453,23 +453,24 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4 * s,
-                padding: `${5 * s}px ${9 * s}px`,
+                gap: 3 * s,
+                padding: `${4 * s}px ${8 * s}px`,
                 borderRadius: 999,
                 background: tc.panelBg,
                 border: `1px solid ${tc.panelBorder}`,
-                fontSize: 9 * s,
+                fontSize: 8.5 * s,
                 fontWeight: 700,
                 color: tc.textDim,
-                letterSpacing: '0.04em',
-                flexWrap: 'wrap',
-                maxWidth: '72%',
-                lineHeight: 1.2,
+                letterSpacing: '0.03em',
+                flexWrap: 'nowrap',
+                maxWidth: '64%',
+                lineHeight: 1.15,
+                overflow: 'hidden',
               }}
             >
-              <span>{isZh ? 'TokCard' : 'TokCard'}</span>
-              <span style={{ opacity: 0.55 }}>·</span>
-              <span>{tokenShort}</span>
+              <span style={{ flexShrink: 0 }}>{isZh ? 'TokCard' : 'TokCard'}</span>
+              <span style={{ opacity: 0.55, flexShrink: 0 }}>·</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tokenShort}</span>
             </div>
             <div
               style={{
@@ -596,11 +597,14 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 <div
                   style={{
                     marginTop: 10 * s,
-                    fontSize: 44 * s,
+                    fontSize: 40 * s,
                     fontWeight: 900,
-                    lineHeight: 0.96,
+                    lineHeight: 0.94,
                     letterSpacing: '-0.05em',
                     fontVariantNumeric: 'tabular-nums',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     color: 'transparent',
                     backgroundImage: `linear-gradient(135deg, ${title.color}, ${rankTier.accent})`,
                     WebkitBackgroundClip: 'text',
@@ -624,18 +628,21 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               </div>
               <div
                 style={{
-                  minWidth: 86 * s,
+                  minWidth: 96 * s,
+                  maxWidth: 96 * s,
                   padding: `${9 * s}px ${11 * s}px`,
                   borderRadius: 12 * s,
                   border: `1px solid ${rankTier.accent}33`,
                   background: `${rankTier.accent}14`,
                   textAlign: 'right',
+                  overflow: 'hidden',
+                  flexShrink: 0,
                 }}
               >
                 <div style={{ fontSize: 10 * s, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em' }}>
                   {isZh ? '排名信号' : 'Ranking'}
                 </div>
-                <div style={{ marginTop: 4 * s, fontSize: 16 * s, fontWeight: 900, color: rankTier.accent, whiteSpace: 'nowrap' }}>
+                <div style={{ marginTop: 4 * s, fontSize: 15 * s, fontWeight: 900, color: rankTier.accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {rankTier.badge} {isZh ? rankTier.label : rankTier.labelEn}
                 </div>
                 <div style={{ marginTop: 4 * s, fontSize: 9 * s, color: tc.textDim }}>
@@ -699,7 +706,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 <div style={{ marginTop: 8 * s, fontSize: 26 * s, fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.03em', color: tc.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {primaryProjectName}
                 </div>
-                <div style={{ marginTop: 8 * s, fontSize: 13 * s, lineHeight: 1.6, color: tc.textSecondary }}>
+                <div style={{ marginTop: 8 * s, fontSize: 13 * s, lineHeight: 1.6, color: tc.textSecondary, maxHeight: 44 * s, overflow: 'hidden' }}>
                   {primaryProjectPitch}
                 </div>
               </div>
@@ -749,14 +756,14 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
           <div style={{ height: 1, background: tc.divider, marginBottom: 14 * s }} />
 
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-            <div style={{ maxWidth: qrDataUrl ? '72%' : '100%' }}>
+            <div style={{ maxWidth: qrDataUrl ? '72%' : '100%', minWidth: 0, overflow: 'hidden' }}>
               <div style={{ fontSize: 9 * s, color: tc.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 4 * s }}>
                 {isZh ? '可传播个人名片' : 'Share-ready identity card'}
               </div>
-              <div style={{ fontSize: 10 * s, color: tc.textDim, marginTop: 6 * s, letterSpacing: '0.03em', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 10 * s, color: tc.textDim, marginTop: 6 * s, letterSpacing: '0.03em', lineHeight: 1.5, maxHeight: 30 * s, overflow: 'hidden' }}>
                 {trustSummary || (isZh ? 'Token 和项目会一起被看见。' : 'Tokens and project travel together.')}
               </div>
-              <div style={{ marginTop: 10 * s, fontSize: 16 * s, fontWeight: 900, letterSpacing: '-0.03em', color: tc.text, display: 'flex', alignItems: 'center', gap: 6 * s }}>
+              <div style={{ marginTop: 10 * s, fontSize: 16 * s, fontWeight: 900, letterSpacing: '-0.03em', color: tc.text, display: 'flex', alignItems: 'center', gap: 6 * s, minWidth: 0 }}>
                 <span
                   style={{
                     display: 'inline-flex',
@@ -773,7 +780,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 >
                   T
                 </span>
-                tokcard.dev
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>tokcard.dev</span>
               </div>
             </div>
 

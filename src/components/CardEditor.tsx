@@ -1432,24 +1432,6 @@ export default function CardEditor() {
               <p className="mt-2 text-xs text-[#86868b]">
                 {isZh ? '默认自动收敛成更短的单位显示，避免一长串 0。' : 'The field auto-normalizes into shorter units so you do not stare at long zero-heavy numbers.'}
               </p>
-              {data.totalTokens > 0 && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <div className="rounded-2xl border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] px-4 py-3 shadow-sm">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '显示效果' : 'Display preview'}</div>
-                    <div className="mt-2 text-xl font-semibold tracking-tight text-[#0f172a]">{tokenCompactDisplay}</div>
-                    <div className="mt-1 text-xs text-[#64748b]">{isZh ? `完整值 ${tokenFullDisplay}` : `${tokenFullDisplay} total tokens`}</div>
-                    <div className="mt-2 text-sm font-medium text-[#475569]">{tokenValueEstimate}</div>
-                    <div className="mt-1 text-[11px] leading-5 text-[#94a3b8]">{isZh ? '按主流模型混合价格粗略估算，帮助别人理解量级。' : 'A blended market estimate to make the scale easier to understand.'}</div>
-                  </div>
-                  {rankTier && (
-                    <div className="rounded-2xl border border-[#dbe4ff] bg-[#f8fbff] px-4 py-3 text-xs font-medium text-[#334155] shadow-sm sm:min-w-[196px]">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? '当前档位' : 'Current tier'}</div>
-                      <div className="mt-2 text-sm font-semibold text-[#1d1d1f]">{rankTier.badge} {isZh ? rankTier.clubLabel : rankTier.clubLabelEn}</div>
-                      <div className="mt-1 text-xs text-[#64748b]">{isZh ? `${rankTier.label} · 更适合放大“实力感”` : `${rankTier.labelEn} · makes the card feel stronger at first glance`}</div>
-                    </div>
-                  )}
-                </div>
-              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {([
                   { label: '轻度玩家', labelEn: 'Casual', value: '10M' },
@@ -1471,16 +1453,6 @@ export default function CardEditor() {
                   </button>
                 ))}
               </div>
-              <details className="mt-3 text-xs text-[#6b7280]">
-                <summary className="cursor-pointer text-[#0071e3] hover:underline">
-                  {isZh ? '去哪里查 token 用量？' : 'Where to find your token usage?'}
-                </summary>
-                <div className="mt-2 space-y-1 pl-2 border-l-2 border-[#dbe4ff]">
-                  <div><strong>Claude:</strong> {isZh ? 'Settings → Usage' : 'Settings → Usage'}</div>
-                  <div><strong>GPT:</strong> {isZh ? 'Usage dashboard（platform.openai.com/usage）' : 'Usage dashboard (platform.openai.com/usage)'}</div>
-                  <div><strong>Cursor:</strong> {isZh ? 'Account → Usage' : 'Account → Usage'}</div>
-                </div>
-              </details>
             </div>
 
             {/* Step 1 navigation — desktop only, mobile uses sticky bar */}
