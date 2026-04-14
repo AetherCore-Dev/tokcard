@@ -15,9 +15,10 @@ import {
   getRegionFlag,
   getRegionLabel,
 } from '@/lib/leaderboard';
-import { formatTokens } from '@/lib/card';
+import { formatTokens, getTokenWindowLabel } from '@/lib/card';
 
 const PAGE_SIZE = 20;
+const DEFAULT_TIME_FILTER: TimeFilter = 'month';
 
 function normalizeCardId(value?: string): string {
   const normalized = (value || '').trim().toLowerCase();
@@ -52,7 +53,7 @@ export default function Leaderboard() {
   const [region, setRegion] = useState('');
   const [companyInput, setCompanyInput] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
-  const [time, setTime] = useState<TimeFilter>('all');
+  const [time, setTime] = useState<TimeFilter>(DEFAULT_TIME_FILTER);
   const [highlightId, setHighlightId] = useState('');
   const [focusInput, setFocusInput] = useState('');
   const [focusNotFound, setFocusNotFound] = useState(false);
@@ -146,7 +147,7 @@ export default function Leaderboard() {
     if (companyFilter.trim()) params.set('company', companyFilter.trim());
     else params.delete('company');
 
-    if (time !== 'all') params.set('time', time);
+    if (time !== DEFAULT_TIME_FILTER) params.set('time', time);
     else params.delete('time');
 
     if (highlightId) params.set('focus', highlightId);
@@ -181,12 +182,15 @@ export default function Leaderboard() {
   const rangeStart = data && data.total > 0 ? (data.meta?.offset ?? 0) + 1 : 0;
   const rangeEnd = data ? (data.meta?.offset ?? 0) + data.entries.length : 0;
   const pageTitle = browserIsZh ? 'Token 与项目榜' : 'Token & Project Leaderboard';
-  const advancedFiltersVisible = showMoreFilters || Boolean(region || companyFilter || time !== 'all');
-  const hasFilters = Boolean(region || companyFilter || time !== 'all' || channel !== 'all');
+  const advancedFiltersVisible = showMoreFilters || Boolean(region || companyFilter || time !== DEFAULT_TIME_FILTER);
+  const hasFilters = Boolean(region || companyFilter || time !== DEFAULT_TIME_FILTER || channel !== 'all');
+  const selectedTimeLabel = time === 'all'
+    ? (browserIsZh ? '全部周期' : 'All windows')
+    : getTokenWindowLabel(time, browserIsZh ? 'zh' : 'en');
   const pageSubtitle = data && data.total > 0
     ? (browserIsZh
-      ? `${data.total} 位开发者符合当前筛选，当前显示 ${rangeStart}-${rangeEnd}。先看谁最能打，再顺手看他们在做什么项目。`
-      : `${data.total} builders match the current filters and you are seeing ${rangeStart}-${rangeEnd}. Start with token intensity, then inspect the projects behind it.`)
+      ? `${data.total} 位开发者符合当前筛选，当前显示 ${rangeStart}-${rangeEnd}。先看 ${selectedTimeLabel} 的 Token 强度，再顺手看他们在做什么项目。`
+      : `${data.total} builders match the current filters and you are seeing ${rangeStart}-${rangeEnd}. Start with ${selectedTimeLabel.toLowerCase()} token intensity, then inspect the projects behind it.`)
     : (browserIsZh ? '这里既是排行榜，也是发现别人项目的入口。' : 'This is both a ranking board and a place to discover what other builders are shipping.');
   const updatedAtLabel = useMemo(() => formatUpdatedAt(data?.updatedAt, browserIsZh), [browserIsZh, data?.updatedAt]);
 
@@ -200,7 +204,7 @@ export default function Leaderboard() {
     if (nextChannel && nextChannel !== 'all') params.set('channel', nextChannel);
     if (nextRegion) params.set('region', nextRegion);
     if (nextCompany.trim()) params.set('company', nextCompany.trim());
-    if (nextTime !== 'all') params.set('time', nextTime);
+    if (nextTime !== DEFAULT_TIME_FILTER) params.set('time', nextTime);
 
     const query = params.toString();
     return `/rank${query ? `?${query}` : ''}`;
@@ -363,8 +367,8 @@ export default function Leaderboard() {
                 </label>
 
                 <div className="flex flex-col gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? '时间范围' : 'Time range'}</span>
-                  <div className="grid grid-cols-3 gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{browserIsZh ? 'Token 周期' : 'Token window'}</span>
+                  <div className="grid grid-cols-4 gap-2">
                     {TIME_FILTERS.map((item) => (
                       <button
                         key={item.value}
@@ -422,13 +426,13 @@ export default function Leaderboard() {
                     }}
                   />
                 )}
-                {time !== 'all' && (
+                {time !== DEFAULT_TIME_FILTER && (
                   <FilterChip
-                    label={`${browserIsZh ? '时间' : 'Time'} · ${browserIsZh ? TIME_FILTERS.find((item) => item.value === time)?.labelZh : TIME_FILTERS.find((item) => item.value === time)?.labelEn ?? time}`}
+                    label={`${browserIsZh ? '周期' : 'Window'} · ${browserIsZh ? TIME_FILTERS.find((item) => item.value === time)?.labelZh : TIME_FILTERS.find((item) => item.value === time)?.labelEn ?? time}`}
                     onClear={() => {
                       setPage(1);
                       setHighlightId('');
-                      setTime('all');
+                      setTime(DEFAULT_TIME_FILTER);
                     }}
                   />
                 )}
@@ -574,6 +578,7 @@ function LeaderboardRow({
   const projectPitch = entry.primaryProjectPitch || (isZh ? '这位开发者正在用 AI 推进一个项目。' : 'This builder is shipping with AI.');
   const tokenDisplay = formatTokens(entry.totalTokens, isZh ? 'zh' : 'en');
   const tokenFullDisplay = entry.totalTokens.toLocaleString(isZh ? 'zh-CN' : 'en-US');
+  const tokenWindowLabel = getTokenWindowLabel(entry.tokenWindow, isZh ? 'zh' : 'en');
   const dateLabel = new Date(entry.createdAt).toLocaleDateString(isZh ? 'zh-CN' : 'en-US', {
     month: 'short',
     day: 'numeric',
@@ -645,6 +650,7 @@ function LeaderboardRow({
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#94a3b8]">
                 {entry.projectCount > 0 && <span>{entry.projectCount} {isZh ? '个项目' : 'projects'}</span>}
+                <span>· {tokenWindowLabel}</span>
                 <span>· {dateLabel}</span>
                 <span>· {isZh ? `等级 ${tier.label}` : `Tier ${tier.labelEn}`}</span>
               </div>
@@ -679,7 +685,7 @@ function LeaderboardRow({
               {isZh ? '查看卡片' : 'View card'}
             </a>
             <a
-              href={`/rank?focus=${entry.id}`}
+              href={`/rank?focus=${entry.id}&time=${entry.tokenWindow}`}
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#dbe4ff] bg-white px-4 text-sm font-medium text-[#475569]"
             >
               {isZh ? '聚焦位置' : 'Focus rank'}
@@ -689,7 +695,7 @@ function LeaderboardRow({
 
         <div className="shrink-0 lg:w-[210px]">
           <div className="rounded-[22px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-4 lg:text-right">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? 'Token 用量' : 'Token volume'}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">{isZh ? `${tokenWindowLabel} Token` : `${tokenWindowLabel} tokens`}</div>
             <div className="mt-2 text-2xl font-semibold tracking-tight text-[#0f172a]">{tokenDisplay}</div>
             <div className="mt-1 text-xs text-[#94a3b8]">{tokenFullDisplay}</div>
             <div className="mt-3 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold lg:ml-auto" style={{ color: tier.accent, borderColor: `${tier.accent}33`, backgroundColor: `${tier.accent}12` }}>

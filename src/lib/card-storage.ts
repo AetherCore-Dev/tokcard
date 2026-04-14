@@ -14,6 +14,7 @@ interface SharedCardPayloadForStorage {
   s: string;
   m: string;
   t: number;
+  tw?: CardData['tokenWindow'];
   lt?: number;
   c: CardData['channel'];
   reg?: string;
@@ -37,6 +38,8 @@ interface SharedCardPayloadForStorage {
   pds?: string;
   pde?: string;
   iat?: string;
+  gr?: number;
+  pct?: number;
 }
 
 function getShareSafeAvatar(data: CardData): Pick<CardData, 'avatarType' | 'avatarValue'> {
@@ -68,6 +71,7 @@ function buildPayloadForStorage(data: CardData): SharedCardPayloadForStorage {
     s: data.slogan,
     m: data.customMetaphor,
     t: data.totalTokens,
+    tw: data.tokenWindow,
     lt: data.lastMonthTokens,
     c: data.channel,
     reg: normalizeRegion(data.region),
@@ -91,6 +95,8 @@ function buildPayloadForStorage(data: CardData): SharedCardPayloadForStorage {
     pds: data.proofDateRange?.start,
     pde: data.proofDateRange?.end,
     iat: data.importedAt,
+    gr: data.globalRank,
+    pct: data.percentile,
   };
 }
 

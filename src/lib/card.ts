@@ -12,7 +12,8 @@ export interface FeaturedProject {
 
 export type TrustTier = 'self-reported' | 'screenshot-backed' | 'usage-imported' | 'strong-authenticated';
 export type ProofSource = 'claude' | 'cursor' | 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'other';
-export type CardTheme = 'brand-dark' | 'brand-light' | 'minimal-gray';
+export type CardTheme = 'brand-dark' | 'brand-light' | 'minimal-gray' | 'velvet-night' | 'aurora-mint' | 'sunset-paper';
+export type TokenWindow = 'day' | 'week' | 'month';
 
 const LEGACY_THEME_MAP: Record<string, CardTheme> = {
   'bold-violet': 'brand-dark',
@@ -36,6 +37,7 @@ export interface CardData {
   slogan: string;
   customMetaphor: string;
   totalTokens: number;
+  tokenWindow: TokenWindow;
   lastMonthTokens: number;
   channel: 'claude' | 'gpt' | 'cursor' | 'deepseek' | 'gemini' | 'other';
   region?: string;
@@ -58,6 +60,8 @@ export interface CardData {
   proofSource?: ProofSource;
   proofDateRange?: ProofDateRange;
   importedAt?: string;
+  globalRank?: number;
+  percentile?: number;
 }
 
 export interface ModelBreakdown {
@@ -85,6 +89,7 @@ interface SharedCardPayloadV1 {
   s: string;
   m: string;
   t: number;
+  tw?: TokenWindow;
   lt?: number;
   c: CardData['channel'];
   reg?: string;
@@ -108,6 +113,8 @@ interface SharedCardPayloadV1 {
   pds?: string;
   pde?: string;
   iat?: string;
+  gr?: number;
+  pct?: number;
 }
 
 interface CardTemplatePresetV1 {
@@ -122,6 +129,7 @@ interface CardTemplatePresetV1 {
   bgV: string;
   mb: ModelBreakdown[];
   mc: CardData['metaphorCategory'];
+  tw?: TokenWindow;
   l: CardData['locale'];
   p: CardData['platform'];
   pr?: FeaturedProject[];
@@ -177,8 +185,8 @@ export const TRUST_TIER_META: Record<TrustTier, {
   'self-reported': {
     label: 'Self reported',
     labelZh: '用户填写',
-    description: 'Ready to share now. Add proof later to enter official rankings.',
-    descriptionZh: '可先分享。补截图或导入 usage 后进正式排名。',
+    description: 'Ready to share now. Add a screenshot proof to enter official rankings.',
+    descriptionZh: '可先分享。补截图后进入正式排名。',
     accent: '#64748b',
   },
   'screenshot-backed': {
@@ -189,18 +197,18 @@ export const TRUST_TIER_META: Record<TrustTier, {
     accent: '#0ea5e9',
   },
   'usage-imported': {
-    label: 'Usage imported',
-    labelZh: '数据导入',
-    description: 'Imported usage. This state is eligible for official rankings.',
-    descriptionZh: '已导入 usage，可进入正式排名。',
-    accent: '#f59e0b',
+    label: 'Proof attached',
+    labelZh: '截图佐证',
+    description: 'Legacy proof state. Treat it as screenshot-backed.',
+    descriptionZh: '历史兼容状态，按截图佐证处理。',
+    accent: '#0ea5e9',
   },
   'strong-authenticated': {
-    label: 'Verified source',
-    labelZh: '官方验证',
-    description: 'Reserved for future direct source integrations.',
-    descriptionZh: '预留给后续更强的数据直连。',
-    accent: '#8b5cf6',
+    label: 'Proof attached',
+    labelZh: '截图佐证',
+    description: 'Legacy proof state. Treat it as screenshot-backed.',
+    descriptionZh: '历史兼容状态，按截图佐证处理。',
+    accent: '#0ea5e9',
   },
 };
 
@@ -217,7 +225,8 @@ export const PROOF_SOURCE_META: Record<ProofSource, { label: string; labelZh: st
 
 const TRUST_TIER_VALUES: TrustTier[] = ['self-reported', 'screenshot-backed', 'usage-imported', 'strong-authenticated'];
 const PROOF_SOURCE_VALUES: ProofSource[] = ['claude', 'cursor', 'openrouter', 'openai', 'anthropic', 'gemini', 'deepseek', 'other'];
-const CARD_THEME_VALUES: CardTheme[] = ['brand-dark', 'brand-light', 'minimal-gray'];
+const CARD_THEME_VALUES: CardTheme[] = ['brand-dark', 'brand-light', 'minimal-gray', 'velvet-night', 'aurora-mint', 'sunset-paper'];
+const TOKEN_WINDOW_VALUES: TokenWindow[] = ['day', 'week', 'month'];
 
 export function normalizeTrustTier(value?: string): TrustTier {
   return TRUST_TIER_VALUES.includes(value as TrustTier) ? (value as TrustTier) : 'self-reported';
@@ -225,6 +234,17 @@ export function normalizeTrustTier(value?: string): TrustTier {
 
 export function normalizeProofSource(value?: string): ProofSource | undefined {
   return PROOF_SOURCE_VALUES.includes(value as ProofSource) ? (value as ProofSource) : undefined;
+}
+
+export function normalizeTokenWindow(value?: string): TokenWindow {
+  return TOKEN_WINDOW_VALUES.includes(value as TokenWindow) ? (value as TokenWindow) : 'month';
+}
+
+export function getTokenWindowLabel(window: TokenWindow, locale: 'zh' | 'en'): string {
+  if (locale === 'zh') {
+    return window === 'day' ? '今日' : window === 'week' ? '本周' : '本月';
+  }
+  return window === 'day' ? 'Today' : window === 'week' ? 'This week' : 'This month';
 }
 
 export function normalizeTheme(value?: unknown): CardTheme {
@@ -268,29 +288,19 @@ export function getRankingSignalLabel(rankTier: RankTierInfo, trustTier: TrustTi
     return locale === 'zh' ? '档位参考' : 'Tier signal';
   }
 
-  if (trustTier === 'screenshot-backed') {
-    return locale === 'zh' ? `约 ${rankTier.topPercentLabel}` : `Approx. ${rankTier.topPercentLabelEn}`;
-  }
-
-  return locale === 'zh' ? `${rankTier.topPercentLabel} 区间` : `${rankTier.topPercentLabelEn} bracket`;
+  return locale === 'zh' ? `约 ${rankTier.topPercentLabel}` : `Approx. ${rankTier.topPercentLabelEn}`;
 }
 
 export function getRankingSignalDescription(rankTier: RankTierInfo, trustTier: TrustTier, locale: 'zh' | 'en'): string {
   if (trustTier === 'self-reported') {
     return locale === 'zh'
-      ? `当前仅展示 ${rankTier.label} 档位；补截图或导入 usage 后进榜。`
-      : `Showing the ${rankTier.labelEn} tier for now. Add proof to enter rankings.`;
-  }
-
-  if (trustTier === 'screenshot-backed') {
-    return locale === 'zh'
-      ? `截图佐证后，已可用于 ${rankTier.topPercentLabel} 区间比较。`
-      : `Screenshot-backed and ready for ${rankTier.topPercentLabelEn} range comparison.`;
+      ? `当前仅展示 ${rankTier.label} 档位；补截图后进榜。`
+      : `Showing the ${rankTier.labelEn} tier for now. Add a screenshot proof to enter rankings.`;
   }
 
   return locale === 'zh'
-    ? `当前已具备正式排名资格，可进入 ${rankTier.topPercentLabel} 区间。`
-    : `Eligible for official rankings and ${rankTier.topPercentLabelEn} range placement.`;
+    ? `截图佐证后，已可用于 ${rankTier.topPercentLabel} 区间比较。`
+    : `Screenshot-backed and ready for ${rankTier.topPercentLabelEn} range comparison.`;
 }
 
 export function formatProofDateRange(range: ProofDateRange | undefined, locale: 'zh' | 'en'): string {
@@ -351,6 +361,7 @@ export const DEFAULT_CARD_DATA: CardData = {
   slogan: 'Build with AI, ship like a factory',
   customMetaphor: '',
   totalTokens: 0,
+  tokenWindow: 'month',
   lastMonthTokens: 0,
   channel: 'claude',
   region: '',
@@ -626,6 +637,7 @@ export function encodeSharedCardPayload(data: CardData): string | null {
     s: data.slogan,
     m: data.customMetaphor,
     t: data.totalTokens,
+    tw: data.tokenWindow,
     lt: data.lastMonthTokens,
     c: data.channel,
     reg: normalizeRegion(data.region),
@@ -649,6 +661,8 @@ export function encodeSharedCardPayload(data: CardData): string | null {
     pds: data.proofDateRange?.start,
     pde: data.proofDateRange?.end,
     iat: data.importedAt,
+    gr: data.globalRank,
+    pct: data.percentile,
   };
 
   return bytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -695,6 +709,7 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         slogan: String(payload.s ?? DEFAULT_CARD_DATA.slogan).slice(0, 200),
         customMetaphor: String(payload.m ?? DEFAULT_CARD_DATA.customMetaphor).slice(0, 200),
         totalTokens: Math.max(0, Number(payload.t ?? 0)),
+        tokenWindow: normalizeTokenWindow(payload.tw),
         lastMonthTokens: Math.max(0, Number(payload.lt ?? 0)),
         channel: payload.c ?? DEFAULT_CARD_DATA.channel,
         region: normalizeRegion(payload.reg),
@@ -717,6 +732,8 @@ export function decodeSharedCardPayload(value: string): DecodedSharedCard | null
         proofSource,
         proofDateRange,
         importedAt: payload.iat,
+        globalRank: Number.isFinite(Number(payload.gr)) ? Math.max(1, Number(payload.gr)) : undefined,
+        percentile: Number.isFinite(Number(payload.pct)) ? Math.max(1, Math.min(100, Number(payload.pct))) : undefined,
       },
       targetUrl,
       referralCode,
@@ -759,6 +776,7 @@ export function encodeCardTemplatePreset(data: CardData): string {
     bgV: background.backgroundValue,
     mb: data.modelBreakdown,
     mc: data.metaphorCategory,
+    tw: data.tokenWindow,
     l: data.locale,
     p: data.platform,
     pr: normalizeFeaturedProjects(data.projects),
@@ -790,6 +808,7 @@ export function decodeCardTemplatePreset(value: string): Partial<CardData> | nul
       slogan: '',
       customMetaphor: '',
       totalTokens: 0,
+      tokenWindow: preset.tw ?? DEFAULT_CARD_DATA.tokenWindow,
       lastMonthTokens: 0,
       qrcodeUrl: '',
       referralCode: '',

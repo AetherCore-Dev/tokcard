@@ -90,6 +90,7 @@ function buildSafeCardPayload(raw: Record<string, unknown>, id: string): string 
     s: safeString(raw.s),
     m: safeString(raw.m),
     t: safeNumber(raw.t),
+    tw: ['day', 'week', 'month'].includes(String(raw.tw)) ? String(raw.tw) : 'month',
     lt: safeNumber(raw.lt),
     c: safeString(raw.c, 16),
     reg: safeString(raw.reg, 2).toUpperCase(),
@@ -113,6 +114,8 @@ function buildSafeCardPayload(raw: Record<string, unknown>, id: string): string 
     pds: safeString(raw.pds, 24),
     pde: safeString(raw.pde, 24),
     iat: safeString(raw.iat, 24),
+    gr: safeNumber(raw.gr, 0, 1_000_000),
+    pct: safeNumber(raw.pct, 0, 100),
   });
 }
 

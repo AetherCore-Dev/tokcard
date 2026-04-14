@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as QRCode from 'qrcode';
 import type { CardData } from '@/lib/card';
 import {
-  formatProofDateRange,
   formatTokenValueEstimate,
   formatTokens,
   formatTokensFull,
   getProofSourceLabel,
   getRankingSignalDescription,
   getRankingSignalLabel,
+  getTokenWindowLabel,
   getTrustTierLabel,
   normalizeTheme,
 } from '@/lib/card';
@@ -49,6 +49,8 @@ const THEME_TOKENS = {
     barTrack: 'rgba(148, 163, 184, 0.10)',
     divider: 'rgba(148, 163, 184, 0.20)',
     avatarInner: '#111827',
+    glowA: 'rgba(245,158,11,0.18)',
+    glowB: 'rgba(96,165,250,0.16)',
   },
   'brand-light': {
     bg: '#fbfbfd',
@@ -63,6 +65,8 @@ const THEME_TOKENS = {
     barTrack: 'rgba(15, 23, 42, 0.04)',
     divider: 'rgba(15, 23, 42, 0.08)',
     avatarInner: '#ffffff',
+    glowA: 'rgba(0,113,227,0.08)',
+    glowB: 'rgba(56,189,248,0.07)',
   },
   'minimal-gray': {
     bg: '#f3f4f6',
@@ -77,6 +81,56 @@ const THEME_TOKENS = {
     barTrack: '#e5e7eb',
     divider: '#d1d5db',
     avatarInner: '#ffffff',
+    glowA: 'rgba(148,163,184,0.06)',
+    glowB: 'rgba(148,163,184,0.04)',
+  },
+  'velvet-night': {
+    bg: '#140f24',
+    text: '#fdf4ff',
+    textSecondary: '#ead7ff',
+    textDim: '#c4b5fd',
+    textMuted: '#a78bfa',
+    accent: '#a855f7',
+    accent2: '#f472b6',
+    panelBg: 'rgba(24, 18, 42, 0.76)',
+    panelBorder: 'rgba(216, 180, 254, 0.22)',
+    barTrack: 'rgba(216, 180, 254, 0.10)',
+    divider: 'rgba(216, 180, 254, 0.18)',
+    avatarInner: '#1a122d',
+    glowA: 'rgba(168,85,247,0.20)',
+    glowB: 'rgba(244,114,182,0.18)',
+  },
+  'aurora-mint': {
+    bg: '#f5fffb',
+    text: '#0f172a',
+    textSecondary: '#1f3b36',
+    textDim: '#3f6a61',
+    textMuted: '#5b7f77',
+    accent: '#0f766e',
+    accent2: '#38bdf8',
+    panelBg: 'rgba(255,255,255,0.92)',
+    panelBorder: 'rgba(15, 118, 110, 0.12)',
+    barTrack: 'rgba(15, 118, 110, 0.05)',
+    divider: 'rgba(15, 118, 110, 0.10)',
+    avatarInner: '#ffffff',
+    glowA: 'rgba(20,184,166,0.10)',
+    glowB: 'rgba(56,189,248,0.08)',
+  },
+  'sunset-paper': {
+    bg: '#fff8f1',
+    text: '#111827',
+    textSecondary: '#4b5563',
+    textDim: '#7c5a43',
+    textMuted: '#9a6b52',
+    accent: '#ea580c',
+    accent2: '#ec4899',
+    panelBg: 'rgba(255,255,255,0.92)',
+    panelBorder: 'rgba(234, 88, 12, 0.12)',
+    barTrack: 'rgba(234, 88, 12, 0.05)',
+    divider: 'rgba(234, 88, 12, 0.10)',
+    avatarInner: '#ffffff',
+    glowA: 'rgba(249,115,22,0.10)',
+    glowB: 'rgba(236,72,153,0.08)',
   },
 } as const;
 
@@ -307,17 +361,29 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
   const tokenShort = data.totalTokens > 0 ? formatTokens(data.totalTokens, data.locale) : '0';
   const tokenFullDisplay = data.totalTokens > 0 ? formatTokensFull(data.totalTokens, data.locale) : '0';
   const tokenValueEstimate = data.totalTokens > 0 ? formatTokenValueEstimate(data.totalTokens, data.locale) : (isZh ? '≈ $0 / ¥0' : '≈ $0 / CN¥0');
+  const tokenWindowLabel = getTokenWindowLabel(data.tokenWindow, data.locale);
   const trustTierLabel = getTrustTierLabel(data.trustTier, data.locale);
   const proofSourceLabel = data.proofSource ? getProofSourceLabel(data.proofSource, data.locale) : '';
-  const proofRangeLabel = formatProofDateRange(data.proofDateRange, data.locale);
   const rankingSignalLabel = getRankingSignalLabel(rankTier, data.trustTier, data.locale);
   const rankingSignalDescription = getRankingSignalDescription(rankTier, data.trustTier, data.locale);
+  const aheadPercent = typeof data.percentile === 'number' ? Math.max(0, 100 - data.percentile) : null;
+  const rankHeadline = typeof data.globalRank === 'number' && data.globalRank > 0
+    ? `#${data.globalRank}`
+    : typeof data.percentile === 'number' && data.percentile > 0
+      ? (isZh ? `前 ${Math.max(1, data.percentile)}%` : `Top ${Math.max(1, data.percentile)}%`)
+      : rankingSignalLabel;
+  const rankFootnote = typeof data.globalRank === 'number' && data.globalRank > 0 && aheadPercent !== null
+    ? (isZh ? `超过 ${aheadPercent}% 用户` : `Ahead of ${aheadPercent}% of builders`)
+    : rankingSignalDescription;
   const trustSummary = [trustTierLabel, proofSourceLabel].filter(Boolean).join(' · ');
   const trustBadgeText = proofSourceLabel ? `${trustTierLabel} · ${proofSourceLabel}` : trustTierLabel;
   const messageLine = data.slogan.trim() || metaphor;
 
   const themeKey = normalizeTheme(data.theme);
   const tc = THEME_TOKENS[themeKey];
+  const isDarkTheme = themeKey === 'brand-dark' || themeKey === 'velvet-night';
+  const isMinimalTheme = themeKey === 'minimal-gray';
+  const hasSoftGlow = !isDarkTheme && !isMinimalTheme;
 
   const font = "'Plus Jakarta Sans', 'Noto Sans SC', system-ui, sans-serif";
   const cardBackground = data.backgroundType === 'preset' && data.backgroundValue ? data.backgroundValue : tc.bg;
@@ -334,8 +400,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
         position: 'relative',
         overflow: 'hidden',
         borderRadius: 20 * s,
-        border: themeKey === 'minimal-gray' ? '1px solid #e2e8f0' : `1px solid ${tc.panelBorder}`,
-        boxShadow: themeKey === 'brand-dark'
+        border: isMinimalTheme ? '1px solid #e2e8f0' : `1px solid ${tc.panelBorder}`,
+        boxShadow: isDarkTheme
           ? '0 0 40px rgba(15,23,42,0.18), 0 8px 32px rgba(0,0,0,0.16)'
           : '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
         display: 'flex',
@@ -350,7 +416,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
           borderRadius: 18 * s,
           border: '1px solid rgba(255,255,255,0.08)',
           pointerEvents: 'none',
-          opacity: themeKey === 'brand-dark' ? 1 : 0.45,
+          opacity: isDarkTheme ? 1 : 0.45,
         }}
       />
 
@@ -365,14 +431,14 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              opacity: themeKey === 'brand-dark' ? 0.22 : 0.14,
+              opacity: isDarkTheme ? 0.22 : 0.14,
             }}
           />
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              background: themeKey === 'brand-dark'
+              background: isDarkTheme
                 ? 'linear-gradient(180deg, rgba(9,9,14,0.20) 0%, rgba(9,9,14,0.44) 100%)'
                 : 'linear-gradient(180deg, rgba(255,255,255,0.64) 0%, rgba(255,255,255,0.84) 100%)',
             }}
@@ -380,7 +446,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
         </>
       )}
 
-      {themeKey === 'brand-dark' && (
+      {isDarkTheme && (
         <>
           <div
             style={{
@@ -389,7 +455,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               right: -50 * s,
               width: 280 * s,
               height: 280 * s,
-              background: 'radial-gradient(circle, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.04) 52%, transparent 72%)',
+              background: `radial-gradient(circle, ${tc.glowA} 0%, transparent 68%)`,
               borderRadius: '50%',
               filter: `blur(${42 * s}px)`,
             }}
@@ -401,7 +467,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               left: -40 * s,
               width: 240 * s,
               height: 240 * s,
-              background: 'radial-gradient(circle, rgba(96,165,250,0.16) 0%, rgba(96,165,250,0.04) 52%, transparent 72%)',
+              background: `radial-gradient(circle, ${tc.glowB} 0%, transparent 68%)`,
               borderRadius: '50%',
               filter: `blur(${38 * s}px)`,
             }}
@@ -409,7 +475,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
         </>
       )}
 
-      {themeKey === 'brand-light' && (
+      {hasSoftGlow && (
         <>
           <div
             style={{
@@ -418,7 +484,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               right: -60 * s,
               width: 300 * s,
               height: 300 * s,
-              background: 'radial-gradient(circle, rgba(0,113,227,0.06) 0%, transparent 62%)',
+              background: `radial-gradient(circle, ${tc.glowA} 0%, transparent 62%)`,
               borderRadius: '50%',
             }}
           />
@@ -429,7 +495,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               left: -50 * s,
               width: 240 * s,
               height: 240 * s,
-              background: 'radial-gradient(circle, rgba(56,189,248,0.05) 0%, transparent 60%)',
+              background: `radial-gradient(circle, ${tc.glowB} 0%, transparent 60%)`,
               borderRadius: '50%',
             }}
           />
@@ -592,7 +658,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 * s }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11 * s, fontWeight: 800, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-                  {isZh ? '本月 Token' : 'Monthly tokens'}
+                  {isZh ? `${tokenWindowLabel} Token` : `${tokenWindowLabel} tokens`}
                 </div>
                 <div
                   style={{
@@ -609,8 +675,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                     backgroundImage: `linear-gradient(135deg, ${title.color}, ${rankTier.accent})`,
                     WebkitBackgroundClip: 'text',
                     backgroundClip: 'text',
-                    textShadow: themeKey === 'brand-dark'
-                      ? `0 0 30px rgba(245,158,11,0.28), 0 0 60px rgba(96,165,250,0.12)`
+                    textShadow: isDarkTheme
+                      ? `0 0 30px ${tc.glowA}, 0 0 60px ${tc.glowB}`
                       : 'none',
                   }}
                 >
@@ -628,8 +694,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               </div>
               <div
                 style={{
-                  minWidth: 96 * s,
-                  maxWidth: 96 * s,
+                  minWidth: 110 * s,
+                  maxWidth: 110 * s,
                   padding: `${9 * s}px ${11 * s}px`,
                   borderRadius: 12 * s,
                   border: `1px solid ${rankTier.accent}33`,
@@ -640,13 +706,17 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 }}
               >
                 <div style={{ fontSize: 10 * s, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-                  {isZh ? '排名信号' : 'Ranking'}
+                  {isZh ? '排名' : 'Ranking'}
                 </div>
                 <div style={{ marginTop: 4 * s, fontSize: 15 * s, fontWeight: 900, color: rankTier.accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {rankTier.badge} {isZh ? rankTier.label : rankTier.labelEn}
+                  {rankHeadline}
                 </div>
                 <div style={{ marginTop: 4 * s, fontSize: 9 * s, color: tc.textDim }}>
-                  {growth > 0 ? `${growth > 999 ? '999+' : growth}% ${isZh ? '较上月' : 'vs last month'}` : rankingSignalDescription}
+                  {typeof data.globalRank === 'number' && data.globalRank > 0
+                    ? rankFootnote
+                    : growth > 0
+                      ? `${growth > 999 ? '999+' : growth}% ${isZh ? '较上月' : 'vs last month'}`
+                      : rankFootnote}
                 </div>
               </div>
             </div>
@@ -667,6 +737,22 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               >
                 <span>{CHANNEL_ICONS[data.channel] || '⚪'}</span>
                 <span>{data.channel}</span>
+              </span>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5 * s,
+                  padding: `${6 * s}px ${10 * s}px`,
+                  borderRadius: 999,
+                  background: tc.barTrack,
+                  border: `1px solid ${tc.panelBorder}`,
+                  fontSize: 10 * s,
+                  fontWeight: 700,
+                  color: tc.textSecondary,
+                }}
+              >
+                <span>{tokenWindowLabel}</span>
               </span>
               <span
                 style={{
@@ -794,10 +880,10 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                     overflow: 'hidden',
                     background: '#ffffff',
                     padding: 4 * s,
-                    boxShadow: themeKey === 'brand-dark'
-                      ? '0 0 16px rgba(245,158,11,0.18), 0 2px 8px rgba(0,0,0,0.2)'
+                    boxShadow: isDarkTheme
+                      ? `0 0 16px ${tc.glowA}, 0 2px 8px rgba(0,0,0,0.2)`
                       : '0 1px 4px rgba(0,0,0,0.06)',
-                    border: themeKey === 'minimal-gray' ? '1px solid #e5e7eb' : 'none',
+                    border: isMinimalTheme ? '1px solid #e5e7eb' : 'none',
                   }}
                 >
                   <img

@@ -9,6 +9,7 @@ export interface LeaderboardEntry {
   id: string;
   username: string;
   totalTokens: number;
+  tokenWindow: 'day' | 'week' | 'month';
   channel: string;
   avatarType: string;
   avatarValue: string;
@@ -39,7 +40,7 @@ export interface LeaderboardIndex {
 export interface LeaderboardFilters {
   region?: string;
   company?: string;
-  time?: 'week' | 'month' | 'all';
+  time?: 'day' | 'week' | 'month' | 'all';
   channel?: string;
 }
 
@@ -91,15 +92,8 @@ function normalizeUrl(value?: unknown): string {
   }
 }
 
-function normalizeTime(value?: string): 'week' | 'month' | 'all' {
-  return value === 'week' || value === 'month' ? value : 'all';
-}
-
-function getTimeThreshold(time: 'week' | 'month' | 'all'): number | null {
-  if (time === 'all') return null;
-  const now = Date.now();
-  const days = time === 'week' ? 7 : 30;
-  return now - days * 24 * 60 * 60 * 1000;
+function normalizeTime(value?: string): 'day' | 'week' | 'month' | 'all' {
+  return value === 'day' || value === 'week' || value === 'month' ? value : 'all';
 }
 
 function matchesFilters(entry: LeaderboardEntry, filters: LeaderboardFilters): boolean {
@@ -117,12 +111,9 @@ function matchesFilters(entry: LeaderboardEntry, filters: LeaderboardFilters): b
     return false;
   }
 
-  const threshold = getTimeThreshold(normalizeTime(filters.time));
-  if (threshold) {
-    const createdAt = new Date(entry.createdAt).getTime();
-    if (Number.isNaN(createdAt) || createdAt < threshold) {
-      return false;
-    }
+  const time = normalizeTime(filters.time);
+  if (time !== 'all' && entry.tokenWindow !== time) {
+    return false;
   }
 
   return true;
@@ -154,6 +145,11 @@ function sanitizeLeaderboardEntry(raw: Partial<LeaderboardEntry> | null | undefi
     id,
     username: String(raw.username ?? '').slice(0, 64),
     totalTokens,
+    tokenWindow: String(raw.tokenWindow ?? 'month') === 'day'
+      ? 'day'
+      : String(raw.tokenWindow ?? 'month') === 'week'
+        ? 'week'
+        : 'month',
     channel: String(raw.channel ?? 'other').slice(0, 16),
     avatarType: String(raw.avatarType ?? 'emoji').slice(0, 16),
     avatarValue: String(raw.avatarValue ?? '🤖').slice(0, 256),
@@ -327,6 +323,11 @@ export function buildLeaderboardEntry(
     id,
     username: String(card.u ?? ''),
     totalTokens,
+    tokenWindow: String(card.tw ?? 'month') === 'day'
+      ? 'day'
+      : String(card.tw ?? 'month') === 'week'
+        ? 'week'
+        : 'month',
     channel: String(card.c ?? 'other'),
     avatarType: String(card.at ?? 'emoji'),
     avatarValue: String(card.av ?? '🤖'),
@@ -369,19 +370,20 @@ export async function getRankSummary(kv: KVNamespace, id: string): Promise<RankS
   const entry = index.entries.find((item) => item.id === id);
   if (!entry) return null;
 
-  const globalRank = getRank(index.entries, id);
+  const comparableEntries = index.entries.filter((item) => item.tokenWindow === entry.tokenWindow);
+  const globalRank = getRank(comparableEntries, id);
   if (!globalRank) return null;
 
-  const channelEntries = index.entries.filter((item) => item.channel === entry.channel);
+  const channelEntries = comparableEntries.filter((item) => item.channel === entry.channel);
   const regionEntries = entry.region
-    ? index.entries.filter((item) => normalizeRegion(item.region) === entry.region)
+    ? comparableEntries.filter((item) => normalizeRegion(item.region) === entry.region)
     : [];
 
   return {
     globalRank,
-    totalCards: index.entries.length,
+    totalCards: comparableEntries.length,
     channelRank: getRank(channelEntries, id),
     regionRank: regionEntries.length > 0 ? getRank(regionEntries, id) : null,
-    percentile: Math.max(1, Math.round((globalRank / Math.max(index.entries.length, 1)) * 100)),
+    percentile: Math.max(1, Math.round((globalRank / Math.max(comparableEntries.length, 1)) * 100)),
   };
 }

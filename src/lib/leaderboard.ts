@@ -2,6 +2,7 @@ export interface LeaderboardEntry {
   id: string;
   username: string;
   totalTokens: number;
+  tokenWindow: 'day' | 'week' | 'month';
   channel: string;
   avatarType: string;
   avatarValue: string;
@@ -40,7 +41,7 @@ export interface LeaderboardIndex {
 }
 
 export type ChannelFilter = 'all' | 'claude' | 'gpt' | 'cursor' | 'deepseek' | 'gemini' | 'other';
-export type TimeFilter = 'all' | 'week' | 'month';
+export type TimeFilter = 'all' | 'day' | 'week' | 'month';
 
 export interface LeaderboardFilters {
   channel?: ChannelFilter;
@@ -63,9 +64,10 @@ export const CHANNEL_FILTERS: { value: ChannelFilter; labelZh: string; labelEn: 
 ];
 
 export const TIME_FILTERS: { value: TimeFilter; labelZh: string; labelEn: string }[] = [
+  { value: 'month', labelZh: '月', labelEn: 'Month' },
+  { value: 'week', labelZh: '周', labelEn: 'Week' },
+  { value: 'day', labelZh: '日', labelEn: 'Day' },
   { value: 'all', labelZh: '全部', labelEn: 'All' },
-  { value: 'month', labelZh: '本月', labelEn: 'Month' },
-  { value: 'week', labelZh: '本周', labelEn: 'Week' },
 ];
 
 export const FEATURED_REGIONS: { value: string; label: string; labelEn: string; flag: string }[] = [

@@ -7,6 +7,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "preview:full": "npx wrangler@4.81.1 pages dev dist",
     "deploy": "npm run build && npx wrangler pages deploy dist --project-name tokcard",
     "astro": "astro",
     "ux:midscene": "tsx scripts/midscene-inspect.ts"

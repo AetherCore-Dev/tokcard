@@ -44,7 +44,7 @@ export const onRequest = async (context: any) => {
     const filtered = await readFilteredLeaderboard(kv, {
       region,
       company,
-      time: time === 'week' || time === 'month' || time === 'all' ? time : 'all',
+      time: time === 'day' || time === 'week' || time === 'month' || time === 'all' ? time : 'all',
       channel,
     });
 

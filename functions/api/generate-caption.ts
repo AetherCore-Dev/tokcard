@@ -40,6 +40,9 @@ export const onRequest: PagesFunction = async (context) => {
     const rankingSignalLabel = sanitizeForPrompt(String(body.rankingSignalLabel ?? ''), 64);
     const primaryProjectName = sanitizeForPrompt(String(body.primaryProjectName ?? ''), 64);
     const primaryProjectPitch = sanitizeForPrompt(String(body.primaryProjectPitch ?? ''), 140);
+    const tokenWindow = body.tokenWindow === 'day' || body.tokenWindow === 'week' || body.tokenWindow === 'month'
+      ? body.tokenWindow
+      : 'month';
 
     if (!platform || tokens === 0) {
       return jsonResponse({ error: 'Missing required fields' }, 400, requestOrigin);
@@ -51,6 +54,9 @@ export const onRequest: PagesFunction = async (context) => {
     }
 
     const tokenDesc = formatTokenValue(tokens);
+    const tokenWindowLabel = locale === 'zh'
+      ? (tokenWindow === 'day' ? '今日' : tokenWindow === 'week' ? '本周' : '本月')
+      : (tokenWindow === 'day' ? 'today' : tokenWindow === 'week' ? 'this week' : 'this month');
     const projectText = [primaryProjectName, primaryProjectPitch, ...projects].filter(Boolean).join(' · ');
     const trustHint = locale === 'zh'
       ? (trustTier === 'self-reported' ? '不要伪装成官方认证榜单。' : '自然带出可信度，不要写成审计报告。')
@@ -61,6 +67,7 @@ export const onRequest: PagesFunction = async (context) => {
 
 用户：${username || 'builder'}
 Token：${tokenDesc}
+统计周期：${tokenWindowLabel}
 项目：${projectText || '未填写'}
 比喻：${metaphor || '无'}
 签名：${slogan || '无'}
@@ -69,12 +76,13 @@ Token：${tokenDesc}
 要求：
 - 输出 3 个版本：FLEX、HYPE、TECH
 - 每个版本必须包含 TITLE / BODY / HASHTAGS / EMOJI / VIBE
-- TITLE 不超过 8 个字
-- BODY 只写 1 句短句，尽量控制在 22 个字内
+- TITLE 不超过 5 个字，像会被直接复制的帖子标题，不要解释
+- BODY 只写 1 句短句，尽量控制在 14 个字内，读完没有压力
 - HASHTAGS 最多 1 个，没有必要可以留空
-- TECH 版本最自然地体现可信 / 排名信号
+- 3 个版本角度必须明显不同：FLEX 更有排面，HYPE 更想转发，TECH 更自然带出可信 / 排名信号
+- 至少 1 个版本自然点到 ${tokenWindowLabel}、token 强度或当前排名信号
 - ${trustHint}
-- 文案要短、准、可直接复制，不要废话
+- 文案要短、准、可直接复制，不要废话，不要长句，不要套话
 
 严格格式：
 TITLE: ...
@@ -86,6 +94,7 @@ VIBE: ...`
 
 User: ${username || 'builder'}
 Tokens: ${tokenDesc}
+Token window: ${tokenWindowLabel}
 Project: ${projectText || 'not provided'}
 Metaphor: ${metaphor || 'none'}
 Slogan: ${slogan || 'none'}
@@ -94,12 +103,13 @@ Ranking signal: ${rankingSignalLabel || 'not provided'}
 Requirements:
 - Output 3 variants: FLEX, HYPE, TECH
 - Each variant must include TITLE / BODY / HASHTAGS / EMOJI / VIBE
-- TITLE must be 6 words or fewer
-- BODY must be a single short sentence
+- TITLE must be 3 words or fewer and feel like a copyable post headline
+- BODY must be one short sentence, ideally under 10 words
 - HASHTAGS must contain no more than 1 hashtag, and can be empty
-- TECH should carry the trust or ranking signal most naturally
+- The 3 variants must feel meaningfully different: FLEX = status, HYPE = share energy, TECH = trust or ranking signal
+- At least 1 variant should naturally hint at the token window, token scale, or rank signal
 - ${trustHint}
-- Keep everything short, clear, and directly usable
+- Keep everything short, clear, directly usable, and low-pressure to read
 
 Use this exact format:
 TITLE: ...

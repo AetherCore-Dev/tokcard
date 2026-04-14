@@ -1,7 +1,7 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import CardRenderer from '@/components/CardRenderer';
-import { DEFAULT_CARD_DATA, encodeCardTemplatePreset, formatTokens, type CardData } from '@/lib/card';
+import { DEFAULT_CARD_DATA, encodeCardTemplatePreset, formatTokens, getTokenWindowLabel, type CardData } from '@/lib/card';
 
 const makeCard = (overrides: Partial<CardData>): CardData => ({
   ...DEFAULT_CARD_DATA,
@@ -20,7 +20,7 @@ const heroCard = makeCard({
   totalTokens: 2_300_000_000,
   lastMonthTokens: 1_400_000_000,
   channel: 'claude',
-  theme: 'brand-dark',
+  theme: 'velvet-night',
   platform: 'wechat',
   metaphorCategory: 'flex',
   primaryProjectName: 'TokCard',
@@ -47,7 +47,7 @@ const showcaseCards: CardData[] = [
     totalTokens: 780_000_000,
     lastMonthTokens: 420_000_000,
     channel: 'gpt',
-    theme: 'minimal-gray',
+    theme: 'sunset-paper',
     platform: 'xiaohongshu',
     metaphorCategory: 'meme',
     primaryProjectName: 'LaunchKit AI',
@@ -70,7 +70,7 @@ const showcaseCards: CardData[] = [
     totalTokens: 96_000_000,
     lastMonthTokens: 60_000_000,
     channel: 'deepseek',
-    theme: 'brand-light',
+    theme: 'aurora-mint',
     platform: 'twitter',
     metaphorCategory: 'worker',
     primaryProjectName: 'SpecFlow',
@@ -132,63 +132,47 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
             <span>Token / 项目 / 排名</span>
           </div>
           <h1 class="mt-6 sm:hidden text-[2.9rem] font-semibold tracking-tight leading-[0.98]">
-            一张名片，
+            把你的
             <span class="block bg-[linear-gradient(135deg,#0071e3_0%,#7c3aed_60%,#f59e0b_100%)] bg-clip-text text-transparent">
-              晒出你的 Token、
+              Token、项目、排名
             </span>
-            <span class="block bg-[linear-gradient(135deg,#0071e3_0%,#7c3aed_60%,#f59e0b_100%)] bg-clip-text text-transparent">
-              项目和排名。
-            </span>
+            <span class="block">压成一张名片。</span>
           </h1>
           <h1 class="mt-6 hidden sm:block text-5xl md:text-7xl font-semibold tracking-tight leading-[1.02]">
-            一张名片，<br />
+            把你的<br />
             <span class="bg-[linear-gradient(135deg,#0071e3_0%,#7c3aed_60%,#f59e0b_100%)] bg-clip-text text-transparent">
-              晒出你的 Token、项目和排名。
-            </span>
+              Token、项目、排名
+            </span><br />
+            压成一张名片。
           </h1>
 
-          <p class="mt-6 max-w-2xl text-base sm:text-lg md:text-xl text-[#6b7280] leading-7 sm:leading-8">
-            把 AI 用量、代表项目和排行榜位置压缩成一张可传播的社交名片。先让别人看到你有多能打，再让他们点进你的项目。
+          <p class="mt-6 max-w-xl text-base sm:text-lg md:text-xl text-[#6b7280] leading-7 sm:leading-8">
+            先看 Token，再点项目，再看你排第几。
           </p>
 
           <div class="mt-6 flex flex-wrap gap-3 text-sm text-[#475569]">
-            <span class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-4 py-2 shadow-sm"><span>🔥</span><span>先看 Token 战绩</span></span>
-            <span class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-4 py-2 shadow-sm"><span>🧩</span><span>再看你做的项目</span></span>
-            <span class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-4 py-2 shadow-sm"><span>🏆</span><span>最后看你排第几</span></span>
+            <span class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-4 py-2 shadow-sm"><span>日 / 周 / 月</span></span>
+            <span class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-4 py-2 shadow-sm"><span>项目链接</span></span>
+            <span class="inline-flex items-center gap-2 rounded-full border border-[#dbe4ff] bg-white px-4 py-2 shadow-sm"><span>排行榜</span></span>
           </div>
 
           <div class="mt-8 flex flex-col sm:flex-row sm:items-center gap-4">
             <a href="/create"
               class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-semibold text-lg bg-[#0071e3] text-white shadow-[0_18px_40px_rgba(0,113,227,0.28)] hover:scale-[1.02] active:scale-[0.98] transition-all">
-              立即生成我的 TokCard
+              立即生成
             </a>
             <a href="/rank"
               class="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full font-medium text-lg bg-white border border-[#dbe4ff] text-[#1d1d1f] shadow-sm hover:border-[#0071e3] transition-all">
-              先看别人怎么晒
+              看看榜单
             </a>
           </div>
 
-          <div class="mt-6 text-sm text-[#6b7280]">无需注册 · 一张图带走战绩与项目 · 自带可传播链接与二维码</div>
+          <div class="mt-6 text-sm text-[#6b7280]">无需注册 · 出图即分享 · 自带链接和二维码</div>
         </div>
 
         <div class="flex justify-center lg:justify-end">
           <div class="relative w-full max-w-[470px] pt-10 pb-8">
             <div class="absolute inset-0 rounded-[46px] bg-[radial-gradient(circle_at_top,rgba(0,113,227,0.20),transparent_55%)] blur-2xl"></div>
-            <div class="hidden md:block absolute left-0 top-0 rounded-2xl border border-[#dbe4ff] bg-white/95 px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur">
-              <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">第一眼</div>
-              <div class="mt-1 text-sm font-semibold text-[#1d1d1f]">Token 战绩</div>
-              <div class="mt-1 text-xs text-[#64748b]">大数字直接建立实力感</div>
-            </div>
-            <div class="hidden md:block absolute right-0 top-28 rounded-2xl border border-[#dbe4ff] bg-white/95 px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur">
-              <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">第二眼</div>
-              <div class="mt-1 text-sm font-semibold text-[#1d1d1f]">项目名片</div>
-              <div class="mt-1 text-xs text-[#64748b]">别人知道你在做什么</div>
-            </div>
-            <div class="hidden md:block absolute left-4 bottom-0 rounded-2xl border border-[#dbe4ff] bg-white/95 px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur">
-              <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">第三眼</div>
-              <div class="mt-1 text-sm font-semibold text-[#1d1d1f]">排名证明</div>
-              <div class="mt-1 text-xs text-[#64748b]">榜单位置带来社交证明</div>
-            </div>
             <div class="relative mx-auto w-fit rotate-[-4deg] drop-shadow-[0_36px_80px_rgba(15,23,42,0.22)]">
               <CardRenderer data={heroCard} scale={0.8} renderId="landing-hero-card" />
             </div>
@@ -201,8 +185,8 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
     <section id="showcase" class="px-6 py-16 max-w-6xl mx-auto w-full border-t border-[#d2d2d7]/40">
       <div class="flex items-end justify-between gap-6 flex-wrap">
         <div>
-          <h2 class="text-3xl md:text-4xl font-semibold tracking-tight">三步建立你的 AI 名片。</h2>
-          <p class="mt-2 max-w-3xl text-[#6b7280]">每张 TokCard 都遵循同一个观看路径：先被 Token 吸引，再被项目打动，最后被排名留住。</p>
+          <h2 class="text-3xl md:text-4xl font-semibold tracking-tight">精选样例</h2>
+          <p class="mt-2 max-w-2xl text-[#6b7280]">挑一个方向，再替换成你的 Token 和项目。</p>
         </div>
       </div>
 
@@ -221,7 +205,7 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
             <div class="mt-4 flex items-center justify-between gap-4 text-sm">
               <div>
                 <div class="font-semibold text-[#1d1d1f]">@{card.username}</div>
-                <div class="mt-1 text-[#6b7280]">{formatTokens(card.totalTokens, card.locale)} · {card.primaryProjectName}</div>
+                <div class="mt-1 text-[#6b7280]">{getTokenWindowLabel(card.tokenWindow, card.locale)} · {formatTokens(card.totalTokens, card.locale)} · {card.primaryProjectName}</div>
               </div>
               <a href={showcaseTemplateUrls[index]}
                 class="rounded-full bg-[#0071e3] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-95 transition-all">
@@ -238,28 +222,28 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
       <div class="grid gap-5 lg:grid-cols-3">
         <div class="rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
           <div class="text-2xl">🔥</div>
-          <div class="mt-3 text-xl font-semibold text-[#1d1d1f]">先建立战绩感</div>
-          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">卡片最先展示 Token 数字，让别人一眼感知你的 AI 强度和使用规模。</p>
+          <div class="mt-3 text-xl font-semibold text-[#1d1d1f]">先看 Token</div>
+          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">大数字先建立强度感。</p>
         </div>
         <div class="rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
           <div class="text-2xl">🧩</div>
-          <div class="mt-3 text-xl font-semibold text-[#1d1d1f]">再带出项目感</div>
-          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">把主项目和一句话介绍挂上名片，别人不只看到数据，也能点进你的作品。</p>
+          <div class="mt-3 text-xl font-semibold text-[#1d1d1f]">再看项目</div>
+          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">别人顺手点进你的作品。</p>
         </div>
         <div class="rounded-[28px] border border-[#dbe4ff] bg-white p-6 shadow-sm">
           <div class="text-2xl">🏆</div>
-          <div class="mt-3 text-xl font-semibold text-[#1d1d1f]">最后提供证明感</div>
-          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">排行榜让这张卡不只是展示工具，而是一个能比较、能发现别人项目的社交场域。</p>
+          <div class="mt-3 text-xl font-semibold text-[#1d1d1f]">最后看排名</div>
+          <p class="mt-2 text-sm text-[#6b7280] leading-relaxed">截图佐证后直接进榜。</p>
         </div>
       </div>
       <div class="mt-8 rounded-[32px] border border-[#dbe4ff] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)] p-6 shadow-sm">
         <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">TokCard 的传播路径</div>
-            <div class="mt-2 text-2xl font-semibold tracking-tight text-[#1d1d1f]">一张图先建立实力，再把流量带去你的项目。</div>
-            <p class="mt-3 max-w-2xl text-sm leading-7 text-[#6b7280]">TokCard 最有价值的不是把数据做成图，而是把 Token、项目和排名压成一个别人愿意点开的入口。</p>
+            <div class="mt-2 text-2xl font-semibold tracking-tight text-[#1d1d1f]">一张图，先建立实力，再把流量带去项目。</div>
+            <p class="mt-3 max-w-xl text-sm leading-7 text-[#6b7280]">Token、项目、排名，同步带走。</p>
           </div>
-          <div class="text-sm text-[#64748b]">这一步完成后，你会拿到一张可传播的 TokCard 和可直接带出去的项目入口。</div>
+          <a href="/create" class="inline-flex items-center justify-center rounded-full bg-[#0071e3] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(0,113,227,0.22)]">开始制作</a>
         </div>
       </div>
     </section>
@@ -267,8 +251,8 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
     <!-- Footer -->
     <footer class="px-6 py-8 text-[13px] max-w-6xl mx-auto w-full text-[#86868b] border-t border-[#d2d2d7]/30">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <p>TokCard — 你的 AI 用量，值得一张名片</p>
-        <p>Token 炫耀 · 项目展示 · 排名发现 · 一张图完成传播</p>
+        <p>TokCard — 把 Token、项目、排名压成一张名片</p>
+        <p>出图即分享</p>
       </div>
     </footer>
   </main>
