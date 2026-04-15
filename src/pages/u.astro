@@ -1,8 +1,17 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import SharedCardLanding from '@/components/SharedCardLanding';
+
+const locale = Astro.url.searchParams.get('locale') === 'en' ? 'en' : 'zh';
+const isZh = locale === 'zh';
+const title = isZh
+  ? 'TokCard · 分享战绩卡'
+  : 'TokCard · Shared AI card';
+const description = isZh
+  ? '查看一张被分享的 TokCard，了解对方的 AI 使用战绩，并生成你的同款卡片。'
+  : 'View a shared TokCard, inspect their AI usage, and create your own version.';
 ---
 
-<Layout title="Shared TokCard · AI 战绩卡" description="查看一张被分享的 TokCard，了解对方的 AI 使用战绩，并生成你的同款卡片。" ogImage="/api/og-image" lang="zh">
+<Layout title={title} description={description} ogImage="/api/og-image" lang={locale}>
   <SharedCardLanding client:load />
 </Layout>

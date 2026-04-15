@@ -45,6 +45,15 @@ function formatUpdatedAt(updatedAt: string | undefined, isZh: boolean): string {
   }
 }
 
+function normalizeLeaderboardPitch(value: string): string {
+  const normalized = value
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return normalized.includes('\uFFFD') ? '' : normalized;
+}
+
 export default function Leaderboard() {
   const [data, setData] = useState<LeaderboardIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -575,7 +584,7 @@ function LeaderboardRow({
   const isTop3 = rank <= 3;
   const projectName = entry.primaryProjectName || entry.topProject?.name || (isZh ? '未命名项目' : 'Untitled project');
   const projectUrl = entry.primaryProjectUrl || entry.topProject?.url || '';
-  const projectPitch = entry.primaryProjectPitch || (isZh ? '这位开发者正在用 AI 推进一个项目。' : 'This builder is shipping with AI.');
+  const projectPitch = normalizeLeaderboardPitch(entry.primaryProjectPitch) || (isZh ? '这位开发者正在用 AI 推进一个项目。' : 'This builder is shipping with AI.');
   const tokenDisplay = formatTokens(entry.totalTokens, isZh ? 'zh' : 'en');
   const tokenFullDisplay = entry.totalTokens.toLocaleString(isZh ? 'zh-CN' : 'en-US');
   const tokenWindowLabel = getTokenWindowLabel(entry.tokenWindow, isZh ? 'zh' : 'en');

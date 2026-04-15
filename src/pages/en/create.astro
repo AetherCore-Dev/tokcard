@@ -1,0 +1,12 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import CardEditor from '@/components/CardEditor';
+---
+
+<Layout
+  title="TokCard - Create your AI card"
+  description="Enter your token usage, project details, and share copy to generate an AI card for WeChat, Xiaohongshu, X, and LinkedIn."
+  lang="en"
+>
+  <CardEditor client:load />
+</Layout>

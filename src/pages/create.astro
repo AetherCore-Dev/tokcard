@@ -1,8 +1,17 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import CardEditor from '@/components/CardEditor';
+
+const locale = Astro.url.searchParams.get('locale') === 'en' ? 'en' : 'zh';
+const isZh = locale === 'zh';
+const title = isZh
+  ? 'TokCard - AI 战绩卡生成器'
+  : 'TokCard - Create your AI card';
+const description = isZh
+  ? '填写 token 用量、项目名片和分享信息，生成一张适合朋友圈、小红书、X 和 LinkedIn 的 AI 战绩分享卡。'
+  : 'Enter your token usage, project details, and share copy to generate an AI card for WeChat, Xiaohongshu, X, and LinkedIn.';
 ---
 
-<Layout title="Create Your TokCard | AI 战绩卡生成器" description="填写 token 用量、项目名片和分享信息，生成一张适合朋友圈、小红书、X 和 LinkedIn 的 AI 战绩分享卡。">
+<Layout title={title} description={description} lang={locale}>
   <CardEditor client:load />
 </Layout>

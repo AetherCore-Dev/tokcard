@@ -80,6 +80,7 @@ function injectOgMeta(html: string, card: StoredCard, cardId: string, requestUrl
   const primaryProjectPitch = escapeHtml(String(card.ppp || ''));
   const rank = getRankBadge(Number(card.t || 0));
   const isZh = card.l !== 'en';
+  const htmlLang = isZh ? 'zh' : 'en';
 
   const ogTitle = isZh
     ? `${username} 的 AI 战绩卡 · ${tokens} tokens`
@@ -111,6 +112,7 @@ function injectOgMeta(html: string, card: StoredCard, cardId: string, requestUrl
 
   // Inject new meta tags before </head>
   result = result.replace('</head>', `${metaTags}\n  </head>`);
+  result = result.replace(/<html\s+lang=["'][^"']*["']/i, `<html lang="${htmlLang}"`);
 
   // Update <title> and description
   result = result.replace(/<title>[^<]*<\/title>/, `<title>${ogTitle}</title>`);

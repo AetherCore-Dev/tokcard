@@ -96,6 +96,19 @@ function normalizeTime(value?: string): 'day' | 'week' | 'month' | 'all' {
   return value === 'day' || value === 'week' || value === 'month' ? value : 'all';
 }
 
+function normalizeLeaderboardText(value: unknown, maxLength: number): string {
+  const raw = String(value ?? '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!raw || raw.includes('\uFFFD')) {
+    return '';
+  }
+
+  return raw.slice(0, maxLength);
+}
+
 function matchesFilters(entry: LeaderboardEntry, filters: LeaderboardFilters): boolean {
   if (filters.channel && filters.channel !== 'all' && entry.channel !== filters.channel) {
     return false;
@@ -139,7 +152,7 @@ function sanitizeLeaderboardEntry(raw: Partial<LeaderboardEntry> | null | undefi
   const topProjectUrl = normalizeUrl(maybeTopProject?.url);
   const primaryProjectName = String(raw.primaryProjectName ?? topProjectName).trim().slice(0, 64);
   const primaryProjectUrl = normalizeUrl(raw.primaryProjectUrl) || topProjectUrl;
-  const primaryProjectPitch = String(raw.primaryProjectPitch ?? '').trim().slice(0, 140);
+  const primaryProjectPitch = normalizeLeaderboardText(raw.primaryProjectPitch, 140);
 
   return {
     id,
@@ -317,7 +330,7 @@ export function buildLeaderboardEntry(
   }) as Record<string, unknown> | undefined;
   const primaryProjectName = String(card.ppn ?? topProject?.name ?? '').trim().slice(0, 64);
   const primaryProjectUrl = normalizeUrl(card.ppu) || normalizeUrl(topProject?.url);
-  const primaryProjectPitch = String(card.ppp ?? '').trim().slice(0, 140);
+  const primaryProjectPitch = normalizeLeaderboardText(card.ppp, 140);
 
   return {
     id,

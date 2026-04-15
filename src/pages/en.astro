@@ -3,48 +3,47 @@ import Layout from '@/layouts/Layout.astro';
 import CardRenderer from '@/components/CardRenderer';
 import { DEFAULT_CARD_DATA, encodeCardTemplatePreset, formatTokens, getTokenWindowLabel, type CardData } from '@/lib/card';
 
-const locale = 'zh';
-const isZh = true;
+const locale = 'en';
 
 const t = {
-  title: 'TokCard - 晒 Token、挂项目、冲排行',
-  description: '把你的 AI token 消耗做成一张精美名片，顺手展示项目，扫码查看卡片、排行和项目主页。',
-  navRank: '排行榜',
-  navShowcase: '亮点',
-  navLocale: 'EN',
-  navLocaleHref: '/en',
-  cta: '立即生成',
-  ctaShort: '生成卡片',
-  heroBadge: 'AI 名片',
-  heroBadgeSub: 'Token / 项目 / 排名',
-  heroLine1: '把你的',
-  heroHighlight: 'Token、项目、排名',
-  heroLine3: '压成一张名片。',
-  heroSub: '先看 Token，再点项目，再看你排第几。',
-  feature1: '日 / 周 / 月',
-  feature2: '项目链接',
-  feature3: '排行榜',
-  heroSecondaryCta: '看看榜单',
-  heroFooter: '无需注册 · 出图即分享 · 自带链接和二维码',
-  showcaseTitle: '精选样例',
-  showcaseSub: '挑一个方向，再替换成你的 Token 和项目。',
-  useDirection: '用这个方向',
-  value1Title: '先看 Token',
-  value1Body: '大数字先建立强度感。',
-  value2Title: '再看项目',
-  value2Body: '别人顺手点进你的作品。',
-  value3Title: '最后看排名',
-  value3Body: '截图佐证后直接进榜。',
-  flowEyebrow: 'TokCard 的传播路径',
-  flowTitle: '一张图，先建立实力，再把流量带去项目。',
-  flowBody: 'Token、项目、排名，同步带走。',
-  flowCta: '开始制作',
-  footerLeft: 'TokCard — 把 Token、项目、排名压成一张名片',
-  footerRight: '出图即分享',
+  title: 'TokCard - Turn tokens into a shareable card',
+  description: 'Turn your AI token usage into a polished social card that also showcases your project, ranking, and share link.',
+  navRank: 'Leaderboard',
+  navShowcase: 'Examples',
+  navLocale: '中文',
+  navLocaleHref: '/',
+  cta: 'Create now',
+  ctaShort: 'Create',
+  heroBadge: 'AI CARD',
+  heroBadgeSub: 'TOKEN / PROJECT / RANK',
+  heroLine1: 'Turn your',
+  heroHighlight: 'tokens, project, and rank',
+  heroLine3: 'into one card.',
+  heroSub: 'Show token strength first, then send attention to your project.',
+  feature1: 'Day / Week / Month',
+  feature2: 'Project link',
+  feature3: 'Leaderboard',
+  heroSecondaryCta: 'View leaderboard',
+  heroFooter: 'No signup · Export and share instantly · Built-in link and QR',
+  showcaseTitle: 'Featured examples',
+  showcaseSub: 'Pick a direction, then swap in your own tokens and project.',
+  useDirection: 'Use this style',
+  value1Title: 'Lead with tokens',
+  value1Body: 'A big number creates instant signal.',
+  value2Title: 'Then show the project',
+  value2Body: 'Let people click straight into what you are building.',
+  value3Title: 'Then show the rank',
+  value3Body: 'Add screenshot proof and enter the board.',
+  flowEyebrow: 'TokCard distribution loop',
+  flowTitle: 'One card to prove strength first, then route traffic to your project.',
+  flowBody: 'Tokens, project, and rank travel together.',
+  flowCta: 'Start building',
+  footerLeft: 'TokCard — turn tokens, project, and rank into one card',
+  footerRight: 'Export and share instantly',
   showcaseMeta: [
-    { platform: '朋友圈', note: '高压排面款' },
-    { platform: '小红书', note: '有图有梗款' },
-    { platform: 'X / LinkedIn', note: '专业名片款' },
+    { platform: 'WeChat', note: 'High-signal flex' },
+    { platform: 'Xiaohongshu', note: 'Visual + viral' },
+    { platform: 'X / LinkedIn', note: 'Professional card' },
   ],
 };
 
@@ -61,7 +60,7 @@ const makeCard = (overrides: Partial<CardData>): CardData => ({
 
 const heroCard = makeCard({
   username: 'vibe.engineer',
-  slogan: isZh ? '发出来不是总结，是压迫感' : "It is not a recap. It's pressure.",
+  slogan: "It is not a recap. It's pressure.",
   totalTokens: 2_300_000_000,
   tokenWindow: 'month',
   lastMonthTokens: 1_400_000_000,
@@ -71,7 +70,7 @@ const heroCard = makeCard({
   metaphorCategory: 'flex',
   primaryProjectName: 'TokCard',
   primaryProjectUrl: 'https://tokcard.dev',
-  primaryProjectPitch: isZh ? '把 token、项目和排行压成一张能传播的卡片' : 'Turn tokens, projects, and ranking into one shareable card.',
+  primaryProjectPitch: 'Turn tokens, projects, and ranking into one shareable card.',
   projects: [
     { id: 'hero-github', name: 'GitHub', icon: '🐙', url: 'https://github.com', displayType: 'icon+text' },
     { id: 'hero-site', name: 'Portfolio', icon: '🌐', url: 'https://tokcard.dev', displayType: 'icon+text' },
@@ -89,7 +88,7 @@ const showcaseCards: CardData[] = [
   makeCard({
     username: 'token.diva',
     avatarValue: '⚡',
-    slogan: isZh ? '别人晒腹肌，我晒 token' : 'Others flex abs. I flex tokens.',
+    slogan: 'Others flex abs. I flex tokens.',
     totalTokens: 780_000_000,
     tokenWindow: 'week',
     lastMonthTokens: 420_000_000,
@@ -99,7 +98,7 @@ const showcaseCards: CardData[] = [
     metaphorCategory: 'meme',
     primaryProjectName: 'LaunchKit AI',
     primaryProjectUrl: 'https://tokcard.dev',
-    primaryProjectPitch: isZh ? '把产品想法压成能快速上线的 AI 发布套件' : 'Compress product ideas into an AI launch kit you can ship fast.',
+    primaryProjectPitch: 'Compress product ideas into an AI launch kit you can ship fast.',
     projects: [
       { id: 'diva-app', name: 'AI App', icon: '📱', url: 'https://tokcard.dev', displayType: 'icon+text' },
       { id: 'diva-ph', name: 'PH', icon: '🚀', url: 'https://tokcard.dev', displayType: 'icon+text' },
@@ -113,7 +112,7 @@ const showcaseCards: CardData[] = [
   makeCard({
     username: 'prompt.pm',
     avatarValue: '🧠',
-    slogan: isZh ? '我会的不是技术，是使唤 AI' : 'My edge is not code. It is directing AI.',
+    slogan: 'My edge is not code. It is directing AI.',
     totalTokens: 96_000_000,
     tokenWindow: 'day',
     lastMonthTokens: 60_000_000,
@@ -123,7 +122,7 @@ const showcaseCards: CardData[] = [
     metaphorCategory: 'worker',
     primaryProjectName: 'SpecFlow',
     primaryProjectUrl: 'https://tokcard.dev',
-    primaryProjectPitch: isZh ? '把 PRD、评审和交付节奏都压进一条 AI 流水线' : 'Push PRD, review, and delivery into one AI production line.',
+    primaryProjectPitch: 'Push PRD, review, and delivery into one AI production line.',
     projects: [
       { id: 'pm-site', name: 'Website', icon: '🪪', url: 'https://tokcard.dev', displayType: 'icon+text' },
       { id: 'pm-case', name: 'Case Study', icon: '📊', url: 'https://tokcard.dev', displayType: 'icon+text' },
@@ -138,7 +137,7 @@ const showcaseCards: CardData[] = [
 
 const showcaseTemplateUrls = showcaseCards.map((card) => {
   const encoded = encodeCardTemplatePreset(card);
-  return `/create?p=${encoded}`;
+  return `/en/create?p=${encoded}`;
 });
 ---
 
@@ -152,10 +151,10 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
     <nav class="px-5 sm:px-6 py-5 flex items-center justify-between max-w-6xl mx-auto w-full relative z-10 gap-3">
       <span class="text-lg sm:text-xl font-semibold tracking-tight">TokCard</span>
       <div class="flex items-center gap-2 sm:gap-3 whitespace-nowrap">
-        <a href="/rank" class="text-sm font-medium text-[#64748b] hover:text-[#1d1d1f]">{t.navRank}</a>
+        <a href="/en/rank" class="text-sm font-medium text-[#64748b] hover:text-[#1d1d1f]">{t.navRank}</a>
         <a href="#showcase" class="text-sm font-medium text-[#64748b] hover:text-[#1d1d1f]">{t.navShowcase}</a>
         <a href={t.navLocaleHref} class="text-sm font-medium text-[#64748b] hover:text-[#1d1d1f]">{t.navLocale}</a>
-        <a href="/create" class="text-sm font-semibold px-3.5 sm:px-4 py-2 rounded-full bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20 hover:scale-[1.02] transition-all">
+        <a href="/en/create" class="text-sm font-semibold px-3.5 sm:px-4 py-2 rounded-full bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20 hover:scale-[1.02] transition-all">
           <span class="sm:hidden">{t.ctaShort}</span>
           <span class="hidden sm:inline">{t.cta}</span>
         </a>
@@ -196,11 +195,11 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
           </div>
 
           <div class="mt-8 flex flex-col sm:flex-row sm:items-center gap-4">
-            <a href="/create"
+            <a href="/en/create"
               class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-semibold text-lg bg-[#0071e3] text-white shadow-[0_18px_40px_rgba(0,113,227,0.28)] hover:scale-[1.02] active:scale-[0.98] transition-all">
               {t.cta}
             </a>
-            <a href="/rank"
+            <a href="/en/rank"
               class="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full font-medium text-lg bg-white border border-[#dbe4ff] text-[#1d1d1f] shadow-sm hover:border-[#0071e3] transition-all">
               {t.heroSecondaryCta}
             </a>
@@ -213,7 +212,7 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
           <div class="relative w-full max-w-[470px] pt-10 pb-8">
             <div class="absolute inset-0 rounded-[46px] bg-[radial-gradient(circle_at_top,rgba(0,113,227,0.20),transparent_55%)] blur-2xl"></div>
             <div class="relative mx-auto w-fit rotate-[-4deg] drop-shadow-[0_36px_80px_rgba(15,23,42,0.22)]">
-              <CardRenderer data={heroCard} scale={0.8} renderId="landing-hero-card" />
+              <CardRenderer data={heroCard} scale={0.8} renderId="landing-hero-card-en" />
             </div>
           </div>
         </div>
@@ -237,7 +236,7 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
                 <span>{t.showcaseMeta[index].note}</span>
               </div>
               <div class="flex justify-center overflow-hidden rounded-[24px] bg-[#f8fafc] py-4">
-                <CardRenderer data={card} scale={0.4} renderId={`landing-showcase-${index}`} />
+                <CardRenderer data={card} scale={0.4} renderId={`landing-showcase-en-${index}`} />
               </div>
             </div>
             <div class="mt-4 flex items-center justify-between gap-4 text-sm">
@@ -280,7 +279,7 @@ const showcaseTemplateUrls = showcaseCards.map((card) => {
             <div class="mt-2 text-2xl font-semibold tracking-tight text-[#1d1d1f]">{t.flowTitle}</div>
             <p class="mt-3 max-w-xl text-sm leading-7 text-[#6b7280]">{t.flowBody}</p>
           </div>
-          <a href="/create" class="inline-flex items-center justify-center rounded-full bg-[#0071e3] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(0,113,227,0.22)]">{t.flowCta}</a>
+          <a href="/en/create" class="inline-flex items-center justify-center rounded-full bg-[#0071e3] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(0,113,227,0.22)]">{t.flowCta}</a>
         </div>
       </div>
     </section>

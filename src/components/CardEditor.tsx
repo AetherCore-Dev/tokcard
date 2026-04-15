@@ -273,6 +273,7 @@ export default function CardEditor() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareCaption, setShareCaption] = useState('');
   const [shareLink, setShareLink] = useState('');
+  const [usedLongFallbackLink, setUsedLongFallbackLink] = useState(false);
   const [siteOrigin, setSiteOrigin] = useState('');
   const [exportCardSnapshot, setExportCardSnapshot] = useState<CardData | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<'caption' | 'link' | null>(null);
@@ -331,9 +332,13 @@ export default function CardEditor() {
     const searchParams = new URLSearchParams(window.location.search);
     const preset = searchParams.get('p');
     const localeParam = searchParams.get('locale');
+    const pathnameLocale = window.location.pathname.startsWith('/en/') ? 'en' : null;
+    const resolvedLocale = localeParam === 'en' || localeParam === 'zh'
+      ? localeParam
+      : pathnameLocale;
 
-    if (localeParam === 'en' || localeParam === 'zh') {
-      setData((prev) => ({ ...prev, locale: localeParam }));
+    if (resolvedLocale === 'en' || resolvedLocale === 'zh') {
+      setData((prev) => ({ ...prev, locale: resolvedLocale }));
     }
 
     if (!preset) return;
@@ -1127,6 +1132,7 @@ export default function CardEditor() {
     setExportNoticeTone('neutral');
     setIsExporting(true);
     setExportProgress(8);
+    setUsedLongFallbackLink(false);
 
     try {
       if (document.fonts?.ready) {
@@ -1137,6 +1143,7 @@ export default function CardEditor() {
       const cardWithRef = { ...data, referralCode: sanitizeReferralCode(data.referralCode || data.username || data.primaryProjectName) };
       const nextShareCaption = shareCaption || buildShareCaption();
       const shortResult = await saveCardAndGetShortUrl(cardWithRef, window.location.origin);
+      setUsedLongFallbackLink(!shortResult);
       const nextShareLink = shortResult?.shortUrl
         ?? buildSharedCardUrl(cardWithRef, window.location.origin)
         ?? window.location.origin;
@@ -2164,8 +2171,8 @@ export default function CardEditor() {
       </div>
 
       {showShareSheet && (
-        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end md:items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded-[28px] bg-white shadow-2xl border border-black/5 p-6 md:p-7">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/45 p-4 backdrop-blur-sm md:items-center">
+          <div className="w-full max-w-xl max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain rounded-[28px] border border-black/5 bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl md:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">
@@ -2278,7 +2285,7 @@ export default function CardEditor() {
             <textarea
               readOnly
               value={activeShareCaption}
-              className="mt-5 h-44 w-full rounded-2xl border border-[#d1d5db] bg-[#f9fafb] p-4 text-sm leading-6 text-[#111827] focus:outline-none resize-none"
+              className="mt-5 h-36 w-full resize-none rounded-2xl border border-[#d1d5db] bg-[#f9fafb] p-4 text-sm leading-6 text-[#111827] focus:outline-none sm:h-44"
             />
 
             {shareLinkMeta && (
@@ -2298,6 +2305,13 @@ export default function CardEditor() {
                     ? '发在评论区、私聊或简介里，别人点开后会先看到你的 TokCard，包括当前的可信标签、来源说明与项目入口。'
                     : 'Drop this in a comment, DM, or bio. People will land on your TokCard first, including its trust label, source context, and project links.'}
                 </p>
+                {usedLongFallbackLink && (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                    {isZh
+                      ? '短链生成失败，当前使用完整分享链接。链接会更长，但仍然可以正常打开和传播。'
+                      : 'Short-link generation failed, so this export is using the full share URL. It is longer, but it still works normally.'}
+                  </div>
+                )}
                 {shareLinkMeta.isCompacted && (
                   <p className="mt-2 text-[11px] leading-5 text-[#94a3b8]">
                     {isZh ? '当前窗口只展示精简版，复制时仍会带上完整链接。' : 'This modal shows a compact preview, but copy still uses the full link.'}
@@ -2355,7 +2369,8 @@ export default function CardEditor() {
           left: -10000,
           top: 0,
           width: platformInfo.width,
-          minHeight: platformInfo.height,
+          height: platformInfo.height,
+          overflow: 'hidden',
           pointerEvents: 'none',
         }}
       >
@@ -2363,11 +2378,12 @@ export default function CardEditor() {
           id={exportRenderId}
           style={{
             width: platformInfo.width,
-            minHeight: platformInfo.height,
+            height: platformInfo.height,
             background: stageBackground,
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'center',
+            overflow: 'hidden',
             padding: '18px 18px 24px',
             boxSizing: 'border-box',
           }}
