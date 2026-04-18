@@ -88,6 +88,10 @@ interface RankSummary {
   percentile: number;
 }
 
+interface CardEditorProps {
+  initialLocale?: 'zh' | 'en';
+}
+
 function formatDateInputValue(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -258,8 +262,8 @@ function parseCaptionOptions(raw: string): AICaptionOption[] {
     .slice(0, 3);
 }
 
-export default function CardEditor() {
-  const [data, setData] = useState<CardData>({ ...DEFAULT_CARD_DATA, theme: 'brand-light' });
+export default function CardEditor({ initialLocale = 'zh' }: CardEditorProps) {
+  const [data, setData] = useState<CardData>({ ...DEFAULT_CARD_DATA, theme: 'brand-light', locale: initialLocale });
   const [tokenInput, setTokenInput] = useState('');
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -335,7 +339,7 @@ export default function CardEditor() {
     const pathnameLocale = window.location.pathname.startsWith('/en/') ? 'en' : null;
     const resolvedLocale = localeParam === 'en' || localeParam === 'zh'
       ? localeParam
-      : pathnameLocale;
+      : pathnameLocale ?? initialLocale;
 
     if (resolvedLocale === 'en' || resolvedLocale === 'zh') {
       setData((prev) => ({ ...prev, locale: resolvedLocale }));
@@ -346,10 +350,14 @@ export default function CardEditor() {
     const decodedPreset = decodeCardTemplatePreset(preset);
     if (!decodedPreset) return;
 
-    setData((prev) => ({ ...prev, ...decodedPreset }));
-    setTokenInput(decodedPreset.totalTokens ? formatTokens(decodedPreset.totalTokens, decodedPreset.locale ?? 'zh') : '');
+    setData((prev) => ({
+      ...prev,
+      ...decodedPreset,
+      locale: resolvedLocale ?? decodedPreset.locale ?? prev.locale,
+    }));
+    setTokenInput(decodedPreset.totalTokens ? formatTokens(decodedPreset.totalTokens, resolvedLocale ?? decodedPreset.locale ?? 'zh') : '');
     setStep(4);
-  }, []);
+  }, [initialLocale]);
 
   // localStorage auto-save
   useEffect(() => {
@@ -361,15 +369,16 @@ export default function CardEditor() {
           const normalizedDraft = {
             ...parsed,
             theme: normalizeTheme((parsed as Partial<CardData>).theme),
+            locale: initialLocale,
           };
-          setData(prev => ({ ...prev, ...normalizedDraft }));
+          setData(prev => ({ ...prev, ...normalizedDraft, locale: initialLocale }));
           if (parsed.totalTokens) {
-            setTokenInput(formatTokens(parsed.totalTokens, parsed.locale === 'en' ? 'en' : 'zh'));
+            setTokenInput(formatTokens(parsed.totalTokens, initialLocale));
           }
         }
       } catch { /* ignore */ }
     }
-  }, []);
+  }, [initialLocale]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

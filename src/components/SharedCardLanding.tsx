@@ -43,7 +43,7 @@ export default function SharedCardLanding() {
   const [metricsId, setMetricsId] = useState('');
   const [cardId, setCardId] = useState('');
   const [rankSummary, setRankSummary] = useState<RankSummary | null>(null);
-  const [cardScale, setCardScale] = useState(0.66);
+  const [cardScale, setCardScale] = useState(0.72);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,9 +174,11 @@ export default function SharedCardLanding() {
   useEffect(() => {
     const updateScale = () => {
       const viewportWidth = window.innerWidth;
-      const maxWidth = Math.min(380, viewportWidth - 56);
-      const nextScale = Math.min(0.75, maxWidth / 540);
-      setCardScale(Math.max(0.54, nextScale));
+      const viewportHeight = window.innerHeight;
+      const maxWidth = Math.min(440, viewportWidth - 40);
+      const maxHeight = Math.min(640, viewportHeight - 180);
+      const nextScale = Math.min(0.84, maxWidth / 540, maxHeight / 720);
+      setCardScale(Math.max(0.58, nextScale));
     };
 
     updateScale();
@@ -321,7 +323,7 @@ export default function SharedCardLanding() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(0,113,227,0.10),_transparent_36%),#f6f8ff] text-[#1d1d1f] px-4 py-6 md:px-6 md:py-8 pb-28">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(0,113,227,0.10),_transparent_36%),#f6f8ff] text-[#1d1d1f] px-4 py-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:px-6 md:py-8 md:pb-12">
       <div className="mx-auto max-w-lg">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between gap-4 text-sm">
@@ -342,7 +344,7 @@ export default function SharedCardLanding() {
 
         {/* 1. Card preview */}
         <section className="flex justify-center">
-          <div className="w-full max-w-[380px] rounded-[36px] bg-white/70 p-3 shadow-[0_30px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+          <div className="w-full max-w-[440px] rounded-[36px] bg-white/70 p-3 shadow-[0_30px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl">
             <div className="flex justify-center overflow-hidden rounded-[30px] bg-[#eef2ff] px-3 py-4">
               <CardRenderer data={shared.card} scale={cardScale} renderId="shared-card-preview" />
             </div>
@@ -457,7 +459,7 @@ export default function SharedCardLanding() {
       </div>
 
       {/* 7. Sticky bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 px-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+      <div className="fixed inset-x-0 bottom-0 z-40 px-4 md:px-6" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-lg">
           <a
             href={createUrl}

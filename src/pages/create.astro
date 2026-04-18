@@ -13,5 +13,5 @@ const description = isZh
 ---
 
 <Layout title={title} description={description} lang={locale}>
-  <CardEditor client:load />
+  <CardEditor client:load initialLocale={locale} />
 </Layout>

@@ -384,6 +384,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
   const isDarkTheme = themeKey === 'brand-dark' || themeKey === 'velvet-night';
   const isMinimalTheme = themeKey === 'minimal-gray';
   const hasSoftGlow = !isDarkTheme && !isMinimalTheme;
+  const compactCardLayout = s <= 0.78;
 
   const font = "'Plus Jakarta Sans', 'Noto Sans SC', system-ui, sans-serif";
   const cardBackground = data.backgroundType === 'preset' && data.backgroundValue ? data.backgroundValue : tc.bg;
@@ -784,15 +785,15 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 * s }}>
+            <div style={{ display: 'flex', flexDirection: compactCardLayout ? 'column' : 'row', alignItems: compactCardLayout ? 'stretch' : 'flex-start', justifyContent: 'space-between', gap: 10 * s }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 10 * s, fontWeight: 800, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.16em' }}>
                   {isZh ? '主项目' : 'Main project'}
                 </div>
-                <div style={{ marginTop: 8 * s, fontSize: 26 * s, fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.03em', color: tc.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ marginTop: 8 * s, fontSize: compactCardLayout ? 22 * s : 26 * s, fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.03em', color: tc.text, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                   {primaryProjectName}
                 </div>
-                <div style={{ marginTop: 8 * s, fontSize: 13 * s, lineHeight: 1.6, color: tc.textSecondary, maxHeight: 44 * s, overflow: 'hidden' }}>
+                <div style={{ marginTop: 8 * s, fontSize: 13 * s, lineHeight: 1.6, color: tc.textSecondary, maxHeight: 62 * s, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
                   {primaryProjectPitch}
                 </div>
               </div>
@@ -800,7 +801,8 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
                 <div
                   style={{
                     flexShrink: 0,
-                    maxWidth: 120 * s,
+                    alignSelf: compactCardLayout ? 'flex-start' : 'auto',
+                    maxWidth: compactCardLayout ? '100%' : 120 * s,
                     padding: `${7 * s}px ${10 * s}px`,
                     borderRadius: 999,
                     border: `1px solid ${tc.panelBorder}`,
@@ -832,7 +834,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
             <div style={{ fontSize: 10 * s, fontWeight: 800, color: tc.textMuted, textTransform: 'uppercase', letterSpacing: '0.16em' }}>
               {isZh ? '传播钩子' : 'Social hook'}
             </div>
-            <div style={{ marginTop: 8 * s, fontSize: 14 * s, fontWeight: 600, lineHeight: 1.6, color: tc.textSecondary }}>
+            <div style={{ marginTop: 8 * s, fontSize: compactCardLayout ? 13 * s : 14 * s, fontWeight: 600, lineHeight: 1.6, color: tc.textSecondary, maxHeight: 68 * s, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
               {messageLine}
             </div>
           </div>
@@ -846,7 +848,7 @@ export default function CardRenderer({ data, scale = 1, renderId = 'tokcard-rend
               <div style={{ fontSize: 9 * s, color: tc.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 4 * s }}>
                 {isZh ? '可传播个人名片' : 'Share-ready identity card'}
               </div>
-              <div style={{ fontSize: 10 * s, color: tc.textDim, marginTop: 6 * s, letterSpacing: '0.03em', lineHeight: 1.5, maxHeight: 30 * s, overflow: 'hidden' }}>
+              <div style={{ fontSize: 10 * s, color: tc.textDim, marginTop: 6 * s, letterSpacing: '0.03em', lineHeight: 1.5, maxHeight: 34 * s, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                 {trustSummary || (isZh ? 'Token 和项目会一起被看见。' : 'Tokens and project travel together.')}
               </div>
               <div style={{ marginTop: 10 * s, fontSize: 16 * s, fontWeight: 900, letterSpacing: '-0.03em', color: tc.text, display: 'flex', alignItems: 'center', gap: 6 * s, minWidth: 0 }}>
